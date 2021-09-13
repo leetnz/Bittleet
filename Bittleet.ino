@@ -33,6 +33,8 @@
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
 
+#include "src/battery.h"
+
 
 #define PACKET_SIZE 42
 #define OVERFLOW_THRESHOLD 128
@@ -294,30 +296,22 @@ void checkBodyMotion()  {
   //PTL(jointIdx);
 }
 
+void initI2C() {
+  Wire.begin();
+  Wire.setClock(400000);
+}
+
 void setup() {
   pinMode(BUZZER, OUTPUT);
-#ifdef PIXEL_PIN
-  pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.clear(); // Set all pixel colors to 'off'
-  // pixels.Color() takes RGB values, from 0,0,0 up to 255,255,255
-  pixels.setPixelColor(3, pixels.Color(0, 0, LIT_ON));
-
-  pixels.show();   // Send the updated pixel colors to the hardware.
-#endif
   // join I2C bus (I2Cdev library doesn't do this automatically)
-#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
-  Wire.begin();
-  //Wire.setClock(400000);
-  TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
-#elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
-  Fastwire::setup(400, true);
-#endif
+  
 
   Serial.begin(BAUD_RATE);
-  Serial.setTimeout(10);
   while (!Serial);
   // wait for ready
   while (Serial.available() && Serial.read()); // empty buffer
+
+  initI2C();
   delay(100);
   PTLF("\n* Start *");
 #ifdef BITTLE
@@ -427,16 +421,19 @@ void setup() {
 }
 
 void loop() {
-  float voltage = analogRead(BATT);
-  if (voltage < LOW_BATT) { //if battery voltage < threshold, it needs to be recharged
+  int battAdcReading = analogRead(BATT);
+  Serial.println(battAdcReading);
+  BatteryState_t battState = batteryState(battAdcReading);
+  if (battState == BatteryState_t::Low) { //if battery voltage < threshold, it needs to be recharged
     //give the robot a break when voltage drops after sprint
     //adjust the thresholds according to your batteries' voltage
     //if set too high, the robot will stop working when the battery still has power.
     //If too low, the robot may not alarm before the battery shuts off
     PTL("Low power!");
     beep(15, 50, 50, 3);
-    delay(1500);
+    delay(1500); // HOANI TODO: Should be disabling Bittle here
   }
+  // HOANI TODO: Do something when no battery is detected
 
   else {
     newCmd[0] = '\0';
