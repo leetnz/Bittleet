@@ -2,14 +2,20 @@ FLAGS = -Wall -Icatch
 
 G++ = g++
 
-TESTS = test/TestMain.o \
-		test/templateTest.o
-SOURCE = 
+TEST_SRC = $(wildcard test/*.cpp)
+TEST_OBJ = $(patsubst test/%.cpp,obj/test/%.o,$(TEST_SRC))
+
+APP_SRC = $(wildcard src/*.cpp)
+APP_OBJ = $(patsubst src/%.cpp,obj/src/%.o,$(APP_SRC))
 
 .PHONY: all
 all: test
 
-test: bittleet_tests runTest
+test: setup bittleet_tests runTest
+
+setup:
+	mkdir -p obj/test
+	mkdir -p obj/src
 
 .PHONY: runTest
 runTest:
@@ -17,10 +23,10 @@ runTest:
 
 .PHONY: clean
 clean:
-	rm -f ./**/*.o
+	rm -fR ./obj
 
-%.o: %.cpp
+obj/%.o: %.cpp
 	$(G++) $(FLAGS) -c -o $@ $<
 
-bittleet_tests: $(TESTS) $(SOURCE)
+bittleet_tests: $(TEST_OBJ) $(SOURCE_OBJ)
 	$(G++) $(FLAGS) $^ -o $@
