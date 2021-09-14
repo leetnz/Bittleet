@@ -309,7 +309,7 @@ void copyDataFromPgmToI2cEeprom(unsigned int &eeAddress, unsigned int pgmAddress
 //     }
 
 //     void info() {
-//       PTL("period: " + String(period) + ",\tdelayBetweenFrames: " + ",\texpected (pitch,roll): (" + expectedRollPitch[0]*M_DEG2RAD + "," + expectedRollPitch[1]*M_DEG2RAD + ")");
+//       PTL("period: " + String(period) + ",\tdelayBetweenFrames: " + ",\texpected (pitch,roll): (" + expectedRollPitch[0]*M_RAD2DEG + "," + expectedRollPitch[1]*M_RAD2DEG + ")");
 //       for (int k = 0; k < period * (period > 1 ? WALKING_DOF : 16); k++) {
 //         PT(String((int8_t)dutyAngles[k]) + ", ");
 //       }
@@ -355,7 +355,7 @@ float adjust(byte i) {
   }
   else
     rollAdj = RollPitchDeviation[0] * adaptiveCoefficient(i, 0) ;
-  currentAdjust[i] = M_RAD2DEG * (
+  currentAdjust[i] = M_DEG2RAD * (
                        (i > 3 ? postureOrWalkingFactor : 1) *
                        rollAdj - ramp * adaptiveCoefficient(i, 1) * ((i % 4 < 2) ? ( RollPitchDeviation[1]) : RollPitchDeviation[1]));
   return currentAdjust[i];

@@ -213,7 +213,7 @@ void getYPR() {//get YPR angles from FIFO data, takes time
 #endif
 #endif
       for (byte g = 1; g < 3; g++)
-        ypr[g] *= M_DEG2RAD;        //ypr converted to degree
+        ypr[g] *= M_RAD2DEG;        //ypr converted to degree
 
       // overflow is detected after the ypr is read. it's necessary to keep a lag record of previous reading.  -- RzLi --
 #ifdef FIX_OVERFLOW
@@ -224,13 +224,13 @@ void getYPR() {//get YPR angles from FIFO data, takes time
       lag = (lag + 1) % HISTORY;
 #endif
 
-#ifdef DEVELOPER
+// #ifdef DEVELOPER
       PT(ypr[0]);
       PTF("\t");
       PT(ypr[1]);
       PTF("\t");
       PTL(ypr[2]);
-#endif
+// #endif
     }
   }
 }
