@@ -28,7 +28,7 @@
   SOFTWARE.
 */
 #define MAIN_SKETCH
-#include "WriteInstinct/OpenCat.h"
+#include "src/OpenCat.h"
 
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
@@ -84,39 +84,7 @@ decode_results results;      // create instance of 'decode_results'
 String translateIR() // takes action based on IR code received
 // describing Remote IR codes.
 {
-#ifndef SHORT_ENCODING
-  switch (results.value) {
-    //IR signal    key on IR remote           //key mapping
-    case 0xFFA25D: /*PTLF(" CH-");   */       return (F(K00));
-    case 0xFF629D: /*PTLF(" CH");  */         return (F(K01));
-    case 0xFFE21D: /*PTLF(" CH+"); */         return (F(K02));
 
-    case 0xFF22DD: /*PTLF(" |<<"); */         return (F(K10));
-    case 0xFF02FD: /*PTLF(" >>|"); */         return (F(K11));
-    case 0xFFC23D: /*PTLF(" >||"); */         return (F(K12));
-
-    case 0xFFE01F: /*PTLF(" -");   */         return (F(K20));
-    case 0xFFA857: /*PTLF(" +");  */          return (F(K21));
-    case 0xFF906F: /*PTLF(" EQ"); */          return (F(K22));
-
-    case 0xFF6897: /*PTLF(" 0");  */          return (F(K30));
-    case 0xFF9867: /*PTLF(" 100+"); */        return (F(K31));
-    case 0xFFB04F: /*PTLF(" 200+"); */        return (F(K32));
-
-    case 0xFF30CF: /*PTLF(" 1");  */          return (F(K40));
-    case 0xFF18E7: /*PTLF(" 2");  */          return (F(K41));
-    case 0xFF7A85: /*PTLF(" 3");  */          return (F(K42));
-
-    case 0xFF10EF: /*PTLF(" 4");  */          return (F(K50));
-    case 0xFF38C7: /*PTLF(" 5");  */          return (F(K51));
-    case 0xFF5AA5: /*PTLF(" 6");  */          return (F(K52));
-
-    case 0xFF42BD: /*PTLF(" 7");  */          return (F(K60));
-    case 0xFF4AB5: /*PTLF(" 8");  */          return (F(K61));
-    case 0xFF52AD: /*PTLF(" 9");  */          return (F(K62));
-
-    case 0xFFFFFFFF: return (""); //Serial.println(" REPEAT");
-#else
   uint8_t trimmed = (results.value >> 8);
   switch (trimmed) {
     //IR signal    key on IR remote           //key mapping
@@ -149,7 +117,6 @@ String translateIR() // takes action based on IR code received
     case 0x52: /*PTLF(" 9");  */          return (F(K62));
 
     case 0xFF: return (""); //Serial.println(" REPEAT");
-#endif
     default: {
         //Serial.println(results.value, HEX);
       }
@@ -162,6 +129,32 @@ String translateIR() // takes action based on IR code received
   // left/right key for turning left and right
   // number keys for different postures or behaviors
 }
+
+// Local variables
+
+//control related variables
+#define CMD_LEN 10
+static char *lastCmd = new char[CMD_LEN];
+static char *newCmd = new char[CMD_LEN];
+static byte newCmdIdx = 0;
+static byte hold = 0;
+static int8_t offsetLR = 0;
+static bool checkGyro = true;
+static int8_t skipGyro = 2;
+
+static uint8_t timer = 0;
+static byte firstMotionJoint;
+static byte jointIdx = 0;
+
+static int8_t servoCalibs[DOF] = {};
+
+static int8_t tStep = 1;
+
+bool soundLightSensorQ = false;
+
+
+
+
 
 
 
@@ -220,7 +213,7 @@ void getYPR() {//get YPR angles from FIFO data, takes time
 #endif
 #endif
       for (byte g = 1; g < 3; g++)
-        ypr[g] *= degPerRad;        //ypr converted to degree
+        ypr[g] *= M_DEG2RAD;        //ypr converted to degree
 
       // overflow is detected after the ypr is read. it's necessary to keep a lag record of previous reading.  -- RzLi --
 #ifdef FIX_OVERFLOW
@@ -287,6 +280,7 @@ void checkBodyMotion()  {
     }
   }
   //calculate deviation
+  const float levelTolerance[2] = {ROLL_LEVEL_TOLERANCE, PITCH_LEVEL_TOLERANCE}; //the body is still considered as level, no angle adjustment
   for (byte i = 0; i < 2; i++) {
     RollPitchDeviation[i] = ypr[2 - i] - motion.expectedRollPitch[i]; //all in degrees
     //PTL(RollPitchDeviation[i]);
@@ -302,16 +296,12 @@ void initI2C() {
 }
 
 void setup() {
-  pinMode(BUZZER, OUTPUT);
-  // join I2C bus (I2Cdev library doesn't do this automatically)
-  
+  pinMode(BUZZER, OUTPUT);  
 
   Serial.begin(BAUD_RATE);
-  while (!Serial);
-  // wait for ready
+  while (!Serial); // wait for ready
   while (Serial.available() && Serial.read()); // empty buffer
 
-  initI2C();
   delay(100);
   PTLF("\n* Start *");
 #ifdef BITTLE
@@ -320,6 +310,7 @@ void setup() {
   PTLF("Nybble");
 #endif
   PTLF("Initialize I2C");
+  initI2C();
   PTLF("Connect MPU6050");
   mpu.initialize();
   //do
@@ -422,7 +413,6 @@ void setup() {
 
 void loop() {
   int battAdcReading = analogRead(BATT);
-  Serial.println(battAdcReading);
   BatteryState_t battState = batteryState(battAdcReading);
   if (battState == BatteryState_t::Low) { //if battery voltage < threshold, it needs to be recharged
     //give the robot a break when voltage drops after sprint
@@ -495,6 +485,7 @@ void loop() {
         //            break;
         //          }
         case T_REST: {
+            // Hoani TODO: skillByName("rest"); takes up less flash, and same amount of RAM... though we might need lastCmd...
             strcpy(lastCmd, "rest");
             skillByName(lastCmd);
             break;
@@ -502,7 +493,6 @@ void loop() {
         case T_GYRO: {
             if (!checkGyro)
               checkBodyMotion();
-            //            countDown = COUNT_DOWN;
             checkGyro = !checkGyro;
             token = T_SKILL;
             break;
@@ -777,61 +767,35 @@ void loop() {
     {
       if (token == T_SKILL) {
         if (jointIdx == DOF) {
-#ifdef SKIP
-          if (updateFrame++ == SKIP) {
-            updateFrame = 0;
-#endif
             // timer = (timer + 1) % abs(motion.period);
             timer += tStep;
             if (timer == abs(motion.period)) {
               timer = 0;
-              //              if (countDown == 0)
-              //                checkGyro = true;
-              //              else countDown--;
             }
             else if (timer == 255)
               timer = abs(motion.period) - 1;
-#ifdef SKIP
-          }
-#endif
-          jointIdx =
-#ifdef HEAD  //start from head
-            0;
-#else
-#ifdef TAIL
-            2;
-#else
-            DOF - WALKING_DOF;
-#endif
-#endif
+
+          jointIdx = 0;
+
         }
-#ifndef TAIL
         if (jointIdx == 1)
           jointIdx = DOF - WALKING_DOF;
-#endif
         if (jointIdx < firstMotionJoint && abs(motion.period) > 1) {
           calibratedPWM(jointIdx, (jointIdx != 1 ? offsetLR : 0) //look left or right
                         + 10 * sin (timer * (jointIdx + 2) * M_PI / abs(motion.period)) //look around
-#ifdef GYRO
                         + (checkGyro ? adjust(jointIdx) : 0)
-#endif
                        );
         }
         else if (jointIdx >= firstMotionJoint) {
           int dutyIdx = timer * WALKING_DOF + jointIdx - firstMotionJoint;
           calibratedPWM(jointIdx, motion.dutyAngles[dutyIdx]*motion.angleDataRatio//+ ((Xconfig && (jointIdx == 14 || jointIdx == 15)) ? 180 : 0)
-#ifdef GYRO
                         + (checkGyro ?
                            (!(timer % skipGyro)  ?
                             adjust(jointIdx)
                             : currentAdjust[jointIdx])
                            : 0)
-                        //+ (checkGyro ? ((!(timer % skipGyro) && countDown == 0) ? adjust(jointIdx) : currentAdjust[jointIdx]) : 0)
-#endif
                        );
-          //          if (jointIdx == 8) {
-          //            PT(currentAdjust[jointIdx]); PT("\t"); PTL( adjust(jointIdx) );
-          //          }
+  
         }
         jointIdx++;
       }
