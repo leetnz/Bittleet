@@ -33,8 +33,7 @@
 
 // Local variables
 
-static String gait = "wk";
-static char direct = 'F';
+
 static bool restQ = false;
 
 
@@ -100,28 +99,6 @@ void meow(int repeat, int pause, int startF, int endF, int increment) {
     if (repeat)delay(pause);
   }
 }
-
-String irParser(String raw) {
-  if (raw == "B") {
-    gait = "bk";
-    return gait;
-  }
-  if (raw == "F" || raw == "L" || raw == "R") {
-    direct = raw[0];
-    if (direct == 'F' && gait == "bk")
-      gait = "wk";
-    return gait + direct;
-  }
-  else if (raw == "cr" || raw == "wk" || raw == "mh" || raw == "tr" || raw == "rn" || raw == "bd") {
-    gait = raw;
-    return gait + direct;
-  }
-  else {
-    return raw;
-  }
-}
-
-
 
 //--------------------
 
@@ -402,6 +379,15 @@ void skillByName(char* skillName, byte angleDataRatio, float speedRatio, bool sh
   }
 }
 
+void skillByCommand(Command::Command& cmd, byte angleDataRatio, float speedRatio, bool shutServoAfterward) {
+  motion.loadByCommand(cmd);
+  transform(motion.dutyAngles, angleDataRatio, speedRatio);
+  if (shutServoAfterward) {
+    shutServos();
+    cmd = Command::Command(Command::Simple::Rest);
+  }
+}
+
 
 //short tools
 
@@ -446,51 +432,51 @@ bool sensorConnectedQ(int n) {
 }
 
 
+// TODO: See if we have this - implement if we do
+// int SoundLightSensorPattern(char *cmd) { //under construction, and will only be active with our new sound and light sensor connected.
+//   int sound = analogRead(SOUND); //larger sound has larger readings
+//   int light = analogRead(LIGHT); //lower light has larger readings
+//   Serial.print(1024);
+//   Serial.print('\t');
+//   Serial.print(0);
+//   Serial.print('\t');
+//   Serial.print(sound);
+//   Serial.print('\t');
+//   Serial.println(light);
+//   if (light > 800 && sound < 500) { //dark condition
+//     if (!restQ) {
+//       skillByName("rest", 1, 1, 1);
+//       delay(500);
+//       restQ = true;
+//     }
+//   }
+//   else {
+//     restQ = false;
 
-int SoundLightSensorPattern(char *cmd) { //under construction, and will only be active with our new sound and light sensor connected.
-  int sound = analogRead(SOUND); //larger sound has larger readings
-  int light = analogRead(LIGHT); //lower light has larger readings
-  Serial.print(1024);
-  Serial.print('\t');
-  Serial.print(0);
-  Serial.print('\t');
-  Serial.print(sound);
-  Serial.print('\t');
-  Serial.println(light);
-  if (light > 800 && sound < 500) { //dark condition
-    if (!restQ) {
-      skillByName("rest", 1, 1, 1);
-      delay(500);
-      restQ = true;
-    }
-  }
-  else {
-    restQ = false;
+//     if (sound > 700) {
 
-    if (sound > 700) {
+//       for (byte l = 0; l < 10; l++) {
+//         lightLag = light;
+//         light = analogRead(LIGHT); //lower light has larger readings
+//         if (light - lightLag  < - 40) {
+//           beep(15);
+//           PTL("Bang!");
+//           strcpy(cmd, "pd");
+//           token = 'k';
+//           return 4;
+//         }
+//       }
 
-      for (byte l = 0; l < 10; l++) {
-        lightLag = light;
-        light = analogRead(LIGHT); //lower light has larger readings
-        if (light - lightLag  < - 40) {
-          beep(15);
-          PTL("Bang!");
-          strcpy(cmd, "pd");
-          token = 'k';
-          return 4;
-        }
-      }
+//       strcpy(cmd, "balance");
 
-      strcpy(cmd, "balance");
-
-    }
-    else
-      strcpy(cmd, "sit");
+//     }
+//     else
+//       strcpy(cmd, "sit");
 
 
-    token = 'k';
-    return 4;
-    //delay(10);
-  }
-  return 0;
-}
+//     token = 'k';
+//     return 4;
+//     //delay(10);
+//   }
+//   return 0;
+// }

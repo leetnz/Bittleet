@@ -71,6 +71,7 @@
 //postures and movements trained by RongzhongLi
 #include<Arduino.h>
 #include "InstinctBittle.h" //activate the correct header file according to your model
+#include "Command.h" //activate the correct header file according to your model
 #include "trig.h"
 
 #define NyBoard_V1_0
@@ -132,8 +133,6 @@ extern char token;
 
 
 
-
-String irParser(String raw);
 
 #define BATT A7
 #define DEVICE_ADDRESS 0x54
@@ -368,6 +367,51 @@ class Motion {
       loadDataByOnboardEepromAddress(onBoardEepromAddress);
     }
 
+    void loadByCommand(Command::Command& command) {//get lookup information from on-board EEPROM and read the data array from storage
+      int onBoardEepromAddress = -1;
+      switch (command.type()) {
+        case (Command::Type::Move): {
+          Command::Move cmd;
+          if (command.get(cmd)) {
+            if (cmd.direction == Command::Direction::Forward) {
+              if (cmd.pace == Command::Pace::Slow) {
+                onBoardEepromAddress = lookupAddressByName("crF");
+              } else if (cmd.pace == Command::Pace::Medium) {
+                onBoardEepromAddress = lookupAddressByName("wkF");
+              } else if (cmd.pace == Command::Pace::Fast) {
+                onBoardEepromAddress = lookupAddressByName("trF");
+              }else if (cmd.pace == Command::Pace::Reverse) {
+                onBoardEepromAddress = lookupAddressByName("bk");
+              }
+            } else if (cmd.direction == Command::Direction::Left) {
+              if (cmd.pace == Command::Pace::Slow) {
+                onBoardEepromAddress = lookupAddressByName("crL");
+              } else if (cmd.pace == Command::Pace::Medium) {
+                onBoardEepromAddress = lookupAddressByName("wkL");
+              } else if (cmd.pace == Command::Pace::Fast) {
+                onBoardEepromAddress = lookupAddressByName("trL");
+              }else if (cmd.pace == Command::Pace::Reverse) {
+                onBoardEepromAddress = lookupAddressByName("bkL");
+              }
+            } else if (cmd.direction == Command::Direction::Right) {
+              if (cmd.pace == Command::Pace::Slow) {
+                onBoardEepromAddress = lookupAddressByName("crR");
+              } else if (cmd.pace == Command::Pace::Medium) {
+                onBoardEepromAddress = lookupAddressByName("wkR");
+              } else if (cmd.pace == Command::Pace::Fast) {
+                onBoardEepromAddress = lookupAddressByName("trR");
+              } else if (cmd.pace == Command::Pace::Reverse) {
+                onBoardEepromAddress = lookupAddressByName("bkR");
+              }
+            }
+          }
+        }
+      }
+      if (onBoardEepromAddress == -1)
+        return;
+      loadDataByOnboardEepromAddress(onBoardEepromAddress);
+    }
+
     /*    void loadBySkillPtr(Skill* sk) {//obsolete. get lookup information from a skill pointer and read the data array from storage
           loadDataByOnboardEepromAddress(sk->onBoardEepromAddress);
         }
@@ -470,6 +514,8 @@ template <typename T> void transform( T * target, byte angleDataRatio = 1, float
 
 
 void skillByName(char* skillName, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true);
+void skillByCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true);
+
 
 
 //short tools

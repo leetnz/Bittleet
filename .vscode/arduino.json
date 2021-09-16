@@ -1,4 +1,3 @@
 {
-    "board": "arduino:avr:uno",
-    "sketch": "OpenCat.ino"
+    "board": "arduino:avr:uno"
 }
