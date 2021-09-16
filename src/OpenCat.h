@@ -129,34 +129,7 @@ extern char token;
 #define T_UNDEFINED 'w'
 #define T_XLEG      'x'
 
-//abbreviation //gait/posture/function names
-#define K00 "d"       //rest and shutdown all servos 
-#define K01 "F"       //forward
-#define K02 "g"       //turn off gyro feedback to boost speed
 
-#define K10 "L"       //left
-#define K11 "balance" //neutral stand up posture
-#define K12 "R"       //right
-
-#define K20 "p"       //pause motion and shut off all servos 
-#define K21 "B"       //backward
-#define K22 "c"       //calibration mode with IMU turned off
-
-#define K30 "vt"      //stepping
-#define K31 "cr"      //crawl
-#define K32 "wk"      //walk
-
-#define K40 "tr"      //trot
-#define K41 "sit"     //sit
-#define K42 "str"     //stretch
-
-#define K50 "hi"      //greeting
-#define K51 "pu"      //push up
-#define K52 "pee"     //standng with three legs
-
-#define K60 "ck"      //check around
-#define K61 "pd"      //play dead
-#define K62 "zero"    //zero position
 
 
 

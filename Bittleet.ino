@@ -34,6 +34,7 @@
 #include <MPU6050_6Axis_MotionApps20.h>
 
 #include "src/battery.h"
+#include "src/Infrared.h"
 
 
 #define PACKET_SIZE 42
@@ -79,56 +80,6 @@ void dmpDataReady() {
 // it will save 178 Bytes for the final compiled code
 /*-----( Declare objects )-----*/
 IRrecv irrecv(IR_RECEIVER);     // create instance of 'irrecv'
-decode_results results;      // create instance of 'decode_results'
-
-String translateIR() // takes action based on IR code received
-// describing Remote IR codes.
-{
-
-  uint8_t trimmed = (results.value >> 8);
-  switch (trimmed) {
-    //IR signal    key on IR remote           //key mapping
-    case 0xA2: /*PTLF(" CH-");   */       return (F(K00));
-    case 0x62: /*PTLF(" CH");  */         return (F(K01));
-    case 0xE2: /*PTLF(" CH+"); */         return (F(K02));
-
-    case 0x22: /*PTLF(" |<<"); */         return (F(K10));
-    case 0x02: /*PTLF(" >>|"); */         return (F(K11));
-    case 0xC2: /*PTLF(" >||"); */         return (F(K12));
-
-    case 0xE0: /*PTLF(" -");   */         return (F(K20));
-    case 0xA8: /*PTLF(" +");  */          return (F(K21));
-    case 0x90: /*PTLF(" EQ"); */          return (F(K22));
-
-    case 0x68: /*PTLF(" 0");  */          return (F(K30));
-    case 0x98: /*PTLF(" 100+"); */        return (F(K31));
-    case 0xB0: /*PTLF(" 200+"); */        return (F(K32));
-
-    case 0x30: /*PTLF(" 1");  */          return (F(K40));
-    case 0x18: /*PTLF(" 2");  */          return (F(K41));
-    case 0x7A: /*PTLF(" 3");  */          return (F(K42));
-
-    case 0x10: /*PTLF(" 4");  */          return (F(K50));
-    case 0x38: /*PTLF(" 5");  */          return (F(K51));
-    case 0x5A: /*PTLF(" 6");  */          return (F(K52));
-
-    case 0x42: /*PTLF(" 7");  */          return (F(K60));
-    case 0x4A: /*PTLF(" 8");  */          return (F(K61));
-    case 0x52: /*PTLF(" 9");  */          return (F(K62));
-
-    case 0xFF: return (""); //Serial.println(" REPEAT");
-    default: {
-        //Serial.println(results.value, HEX);
-      }
-      return ("");                      //Serial.println("null");
-  }// End Case
-  //delay(100); // Do not get immediate repeat //no need because the main loop is slow
-
-  // The control could be organized in another way, such as:
-  // forward/backward to change the gaits corresponding to different speeds.
-  // left/right key for turning left and right
-  // number keys for different postures or behaviors
-}
 
 // Local variables
 
@@ -224,13 +175,13 @@ void getYPR() {//get YPR angles from FIFO data, takes time
       lag = (lag + 1) % HISTORY;
 #endif
 
-// #ifdef DEVELOPER
+#ifdef DEVELOPER
       PT(ypr[0]);
       PTF("\t");
       PT(ypr[1]);
       PTF("\t");
       PTL(ypr[2]);
-// #endif
+#endif
     }
   }
 }
@@ -323,7 +274,7 @@ void setup() {
 
   // load and configure the DMP
   do {
-    PTLF("Initialize DMP");
+    PTLF("Initialize DMP"); // Digital Motion Processor
     devStatus = mpu.dmpInitialize();
     delay(500);
     // supply your own gyro offsets here, scaled for min sensitivity
@@ -367,9 +318,7 @@ void setup() {
   } while (devStatus);
 
   //opening music
-#if WALKING_DOF == 8
-  playMelody(MELODY);
-#endif
+  // playMelody(MELODY);
 
   //IR
   {
@@ -421,7 +370,7 @@ void loop() {
     //If too low, the robot may not alarm before the battery shuts off
     PTL("Low power!");
     beep(15, 50, 50, 3);
-    delay(1500); // HOANI TODO: Should be disabling Bittle here
+    delay(1500); // HOANI TODO: Should be disabling all servos here
   }
   // HOANI TODO: Do something when no battery is detected
 
@@ -434,9 +383,9 @@ void loop() {
     }
     // input block
     //else if (t == 0) {
+    decode_results results;
     if (irrecv.decode(&results)) {
-      String IRsig = irParser(translateIR());
-      //PTL(IRsig);
+      String IRsig = irParser(Infrared::translate((results.value >> 8)));
       if (IRsig != "") {
         strcpy(newCmd, IRsig.c_str());
         if (strlen(newCmd) == 1)
@@ -454,7 +403,6 @@ void loop() {
 
     // MPU block
     {
-#ifdef GYRO //if opt out the gyro, the calculation can be really fast
       if (checkGyro) {
         if (!(timer % skipGyro)) {
           checkBodyMotion();
@@ -468,7 +416,6 @@ void loop() {
           getFIFO();
         }
       }
-#endif
     }
     // accident block
     //...
@@ -644,16 +591,6 @@ void loop() {
             delete []temp;
             break;
           }
-
-        //        case T_XLEG: {
-        //            for (byte s = 0; s < 23; s++) {
-        //
-        //              motion.loadDataFromProgmem(steps[s]);
-        //              transform(motion.dutyAngles, 1,2);
-        //            }
-        //            skillByName("balance");
-        //            break;
-        //          }
 
 
         default: if (Serial.available() > 0) {
