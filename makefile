@@ -1,4 +1,4 @@
-FLAGS = -Wall -Icatch -Isrc -Itest/mock
+FLAGS = -Wall -Itest/catch -Isrc -Itest/mock
 
 G++ = g++
 
