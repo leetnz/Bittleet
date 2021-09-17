@@ -37,7 +37,7 @@ namespace Command {
 enum class Simple : uint8_t {
     None = 0,
     Rest,
-    GyroOff,
+    GyroToggle,
     Balance,
     Pause,
     Step,

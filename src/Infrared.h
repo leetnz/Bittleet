@@ -11,7 +11,7 @@ enum Input : uint8_t {
     None = 0,
     Rest,
     Forward,
-    GyroOff,
+    GyroToggle,
     Left,
     Balance,
     Right,

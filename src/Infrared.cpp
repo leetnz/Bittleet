@@ -26,7 +26,7 @@ namespace Infrared {
 
 #define K00 Input::Rest       //rest and shutdown all servos 
 #define K01 Input::Forward    //forward
-#define K02 Input::GyroOff    //turn off gyro feedback to boost speed
+#define K02 Input::GyroToggle    //turn off gyro feedback to boost speed
 
 #define K10 Input::Left       //left
 #define K11 Input::Balance    //neutral stand up posture
@@ -91,7 +91,7 @@ Command::Command parser(Input in, const Command::Move& current) {
         case Input::Walk:       return Command::Command(Move{Pace::Medium, current.direction});
         case Input::Trot:       return Command::Command(Move{Pace::Fast, current.direction});
         case Input::Rest:       return Command::Command(Simple::Rest);
-        case Input::GyroOff:    return Command::Command(Simple::GyroOff);  
+        case Input::GyroToggle:    return Command::Command(Simple::GyroToggle);  
         case Input::Balance:    return Command::Command(Simple::Balance);
         case Input::Pause:      return Command::Command(Simple::Pause);
         case Input::Calibrate:  return Command::Command(WithArgs{ArgType::Calibrate, 0, {}});

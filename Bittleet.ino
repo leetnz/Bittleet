@@ -87,8 +87,6 @@ IRrecv irrecv(IR_RECEIVER);     // create instance of 'irrecv'
 //control related variables
 #define CMD_LEN 10
 static Command::Command lastCmd;
-static Command::Command newCmd;
-static byte newCmdIdx = 0;
 static byte hold = 0;
 static int8_t offsetLR = 0;
 static bool checkGyro = true;
@@ -187,7 +185,7 @@ void getYPR() {//get YPR angles from FIFO data, takes time
   }
 }
 
-void checkBodyMotion()  {
+void checkBodyMotion(Command::Command& newCmd)  {
   //if (!dmpReady) return;
   getYPR();
   // --
@@ -204,7 +202,6 @@ void checkBodyMotion()  {
         token = T_SKILL;
         if (fabs(ypr[2]) > LARGE_ROLL) {
           newCmd = Command::Command(Command::Simple::Recover); // "rc"
-          newCmdIdx = 4;
         }
       }
       hold = 10;
@@ -216,14 +213,12 @@ void checkBodyMotion()  {
     if (hold == 1) {
       token = T_SKILL;
       newCmd = Command::Command(Command::Simple::Balance);
-      newCmdIdx = 1;
     }
     hold --;
     if (!hold) {
       Command::Command temp = newCmd;
       newCmd = lastCmd;
       lastCmd = temp;
-      newCmdIdx = 1;
       meow();
     }
   }
@@ -343,7 +338,6 @@ void setup() {
       calibratedPWM(i, motion.dutyAngles[i]);
       delay(20);
     }
-    randomSeed(analogRead(0));//use the fluctuation of voltage caused by servos as entropy pool
     shutServos();
     token = T_REST;
   }
@@ -358,10 +352,11 @@ void setup() {
 }
 
 void loop() {
+  static Command::Command newCmd;
   static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
   int battAdcReading = analogRead(BATT);
-  BatteryState_t battState = batteryState(battAdcReading);
-  if (battState == BatteryState_t::Low) { //if battery voltage < threshold, it needs to be recharged
+  Battery::State battState = Battery::state(battAdcReading);
+  if (battState == Battery::State::Low) { //if battery voltage < threshold, it needs to be recharged
     //give the robot a break when voltage drops after sprint
     //adjust the thresholds according to your batteries' voltage
     //if set too high, the robot will stop working when the battery still has power.
@@ -374,30 +369,17 @@ void loop() {
 
   else {
     newCmd = Command::Command();
-    newCmdIdx = 0;
 
     // input block
     {
       decode_results results;
       if (irrecv.decode(&results)) {
         newCmd = Infrared::parser(Infrared::translate((results.value >> 8)), move);
-        if (newCmd.type() != Command::Type::None) {
-          newCmdIdx = 2;
-        }
-        // if (IRsig != "") {
-        //   strcpy(newCmd, IRsig.c_str());
-        //   if (strlen(newCmd) == 1)
-        //     token = newCmd[0];
-        //   else
-        //     token = T_SKILL;
-        //   newCmdIdx = 2;
-        // }
         irrecv.resume(); // receive the next value
       }
       
       if ( Serial.available() > 0) {
         token = Serial.read();
-        newCmdIdx = 3;
         // this block handles argumentless tokens
         switch (token) {
           case T_REST: {
@@ -405,17 +387,11 @@ void loop() {
               break;
             }
           case T_GYRO: {
-              newCmd = Command::Command(Command::Simple::GyroOff);
+              newCmd = Command::Command(Command::Simple::GyroToggle);
               break;
             }
           case T_PAUSE: {
               newCmd = Command::Command(Command::Simple::Pause);
-              // TODO: some trickery here... gonna need to be careful with this
-              // tStep = !tStep;
-              // if (tStep)
-              //   token = T_SKILL;
-              // else
-              //   shutServos();
               break;
             }
           case T_SAVE: {
@@ -521,10 +497,6 @@ void loop() {
 
 
           default: {
-            // if (Serial.available() > 0) {
-            //   // String inBuffer = Serial.readStringUntil('\n');
-            //   // strcpy(newCmd, inBuffer.c_str());
-            // }
             break;
           }
         }
@@ -536,7 +508,7 @@ void loop() {
     {
       if (checkGyro) {
         if (!(timer % skipGyro)) {
-          checkBodyMotion();
+          checkBodyMotion(newCmd);
 
         }
         else if (mpuInterrupt || fifoCount >= packetSize)
@@ -556,7 +528,6 @@ void loop() {
       } else {
         token = T_SKILL;
         motion.loadByCommand(newCmd);
-        newCmdIdx = 2;
       }
     } else if (newCmd.type() == Command::Type::Simple) {
       Command::Simple cmd;
@@ -569,9 +540,9 @@ void loop() {
             skillByCommand(lastCmd);
             break;
           }
-          case Command::Simple::GyroOff: { // TODO: This may possibly be a toggle - check logic
+          case Command::Simple::GyroToggle: { // TODO: This may possibly be a toggle - check logic
             if (!checkGyro) {
-              checkBodyMotion();
+              checkBodyMotion(newCmd);
             }
             checkGyro = !checkGyro;
             token = T_SKILL;
@@ -580,6 +551,7 @@ void loop() {
           case Command::Simple::Pause: {
             tStep = !tStep;
             if (tStep) {
+              newCmd = Command::Command(); // resume last command.
               token = T_SKILL;
             } else {
               shutServos();
@@ -681,153 +653,18 @@ void loop() {
       }
     }
 
-    if (newCmdIdx) {
+    if (newCmd != Command::Command()) {
       PTL(token);
-      if (newCmdIdx < 4)
-        beep(newCmdIdx * 4);
+      beep(8);
 
-      // this block handles argumentless tokens
-      // switch (token) {
-       
-
-        // this block handles array like arguments
-        // case T_INDEXED: //indexed joint motions: joint0, angle0, joint1, angle1, ... (binary encoding)
-        // case T_LISTED: //list of all 16 joint: angle0, angle2,... angle15 (binary encoding)
-        //   //case T_MELODY: //for melody
-        //   {
-        //     String inBuffer = Serial.readStringUntil('~');
-        //     int8_t numArg = inBuffer.length();
-        //     char* list = inBuffer.c_str();
-        //     char *targetFrame = new char [DOF];
-        //     for (int i = 0; i < DOF; i += 1) {
-        //       targetFrame[i] = currentAng[i];
-        //     }
-        //     if (token == T_INDEXED) {
-        //       for (int i = 0; i < numArg; i += 2) {
-        //         targetFrame[list[i]] = list[i + 1];
-        //       }
-        //     }
-        //     else if (token == T_LISTED) {
-        //       for (int i = 0; i < DOF; i += 1) {
-        //         targetFrame[i] = list[i];
-        //       }
-        //     }
-        //     transform(targetFrame, 1, 3); //need to add angleDataRatio if the angles are large
-        //     delete [] targetFrame;
-
-        //     break;
-        //   }
-      //   case T_JOINTS: { //show the list of current joint anles
-      //       printRange(DOF);
-      //       printList(currentAng);
-      //       break;
-      //     }
-      //   case T_CALIBRATE: //calibration
-      //   case T_MOVE: //move multiple indexed joints to angles once at a time (ASCII format entered in the serial monitor)
-      //   case T_SIMULTANEOUS_MOVE: //move multiple indexed joints to angles simultaneously (ASCII format entered in the serial monitor)
-      //   case T_MEOW: //meow (repeat, increament)
-      //   case T_BEEP: //beep(tone, duration): tone 0 is pause, duration range is 0~255
-      //     {
-      //       char *simultaneousMoveInBinary = new char [DOF];
-      //       for (int i = 0; i < DOF; i += 1) {
-      //         simultaneousMoveInBinary[i] = currentAng[i];
-      //       }
-      //       String inBuffer = Serial.readStringUntil('\n');
-      //       char* temp = new char[64];
-      //       strcpy(temp, inBuffer.c_str());
-      //       char *pch;
-      //       pch = strtok (temp, " ,");
-      //       do {  //it supports combining multiple commands at one time
-      //         //for example: "m8 40 m8 -35 m 0 50" can be written as "m8 40 8 -35 0 50"
-      //         //the combined commands should be less than four. string len <=30 to be exact.
-      //         int target[2] = {};
-      //         byte inLen = 0;
-      //         for (byte b = 0; b < 2 && pch != NULL; b++) {
-      //           target[b] = atoi(pch);
-      //           pch = strtok (NULL, " ,\t");
-      //           inLen++;
-      //         }
-      //         simultaneousMoveInBinary[target[0]] = target[1];
-
-      //         PT(token);
-      //         printList(target, 2);
-      //         float angleInterval = 0.2;
-      //         int angleStep = 0;
-      //         if (token == T_CALIBRATE) {
-      //           //PTLF("calibrating [ targetIdx, angle ]: ");
-      //           PTL();
-      //           printRange(DOF);
-      //           printList(servoCalibs);
-      //           //yield();
-      //           const Command::Command calibrateCmd = Command::Command(Command::Simple::Calibrate));
-      //           if (lastCmd != calibrateCmd) { //first time entering the calibration function
-      //             lastCmd = calibrateCmd;
-      //             motion.loadBySkillCommand(calibrateCmd);
-      //             transform( motion.dutyAngles);
-      //             checkGyro = false;
-      //           }
-      //           if (inLen == 2) {
-      //             if (target[1] >= 1001) { // Using 1001 for incremental calibration. 1001 is adding 1 degree, 1002 is adding 2 and 1009 is adding 9 degrees
-      //               target[1] = servoCalibs[target[0]] + target[1] - 1000;
-      //             } else if (target[1] <= -1001) { // Using -1001 for incremental calibration. -1001 is removing 1 degree, 1002 is removing 2 and 1009 is removing 9 degrees
-      //               target[1] = servoCalibs[target[0]] + target[1] + 1000;
-      //             }
-
-      //             servoCalibs[target[0]] = target[1];
-      //           }
-      //           int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(target[0])  + servoCalibs[target[0]] + motion.dutyAngles[target[0]]) * pulsePerDegree[target[0]] * rotationDirection(target[0]);
-      //           pwm.setPWM(pin(target[0]), 0,  duty);
-      //         }
-      //         else if (token == T_MOVE) {
-      //           //SPF("moving [ targetIdx, angle ]: ");
-      //           angleStep = floor((target[1] - currentAng[target[0]]) / angleInterval);
-      //           for (int a = 0; a < abs(angleStep); a++) {
-      //             int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(target[0])  + servoCalibs[target[0]] + currentAng[target[0]] + a * angleInterval * angleStep / abs(angleStep)) * pulsePerDegree[target[0]] * rotationDirection(target[0]);
-      //             pwm.setPWM(pin(target[0]), 0,  duty);
-      //           }
-      //           currentAng[target[0]] = motion.dutyAngles[target[0]] = target[1];
-      //         }
-      //         else if (token == T_MEOW) {
-      //           meow(target[0], 0, 50, 200, 1 + target[1]);
-      //         }
-      //         else if (token == T_BEEP) {
-      //           beep(target[0], (byte)target[1]);
-      //         }
-
-      //         delay(50);
-      //       } while (pch != NULL);
-      //       if (token == T_SIMULTANEOUS_MOVE)
-      //         transform(simultaneousMoveInBinary, 1, 6);
-      //       delete []simultaneousMoveInBinary;
-      //       delete []pch;
-      //       delete []temp;
-      //       break;
-      //     }
-
-
-      //   default: if (Serial.available() > 0) {
-      //       String inBuffer = Serial.readStringUntil('\n');
-      //       strcpy(newCmd, inBuffer.c_str());
-      //     }
-      // }
-      // while (Serial.available() && Serial.read()); //flush the remaining serial buffer in case the commands are parsed incorrectly
       //check above
-      if ((newCmd != Command::Command()) && (newCmd != lastCmd)) {
-        //      PT("compare lastCmd ");
-        //      PT(lastCmd);
-        //      PT(" with newCmd ");
-        //      PT(token);
-        //      PT(newCmd);
-        //      PT("\n");
-        if (token == T_UNDEFINED) {}; //some words for undefined behaviors
-
+      if (newCmd != lastCmd) {
         if (token == T_SKILL) { //validating key
 
           motion.loadByCommand(newCmd);
 
           offsetLR = 0;
           if (newCmd.type() == Command::Type::Move) {
-            Command::Move move;
             if (newCmd.get(move)) {
               if (move.direction == Command::Direction::Left) {
                 offsetLR = 15;
@@ -899,13 +736,13 @@ void loop() {
                 repeat--;
               }
             }
-            skillByName("balance", 1, 2, false);
+            // skillByName("balance", 1, 2, false);
             lastCmd = Command::Command(Command::Simple::Balance);
+            skillByCommand(lastCmd, 1, 2, false);
             for (byte a = 0; a < DOF; a++)
               currentAdjust[a] = 0;
             hold = 0;
-          }
-          else {
+          } else {
             transform( motion.dutyAngles, motion.angleDataRatio, 1, firstMotionJoint);
           }
           jointIdx = 3;//DOF; to skip the large adjustment caused by MPU overflow. joint 3 is not used.
@@ -914,9 +751,6 @@ void loop() {
             token = T_REST;
           }
         }
-      }
-      else {
-        lastCmd = newCmd; // was lastCmd = token - but token should disappear soon...
       }
     }
 
@@ -935,8 +769,9 @@ void loop() {
           jointIdx = 0;
 
         }
-        if (jointIdx == 1)
+        if (jointIdx == 1) {
           jointIdx = DOF - WALKING_DOF;
+        }
         if (jointIdx < firstMotionJoint && abs(motion.period) > 1) {
           calibratedPWM(jointIdx, (jointIdx != 1 ? offsetLR : 0) //look left or right
                         + 10 * sin (timer * (jointIdx + 2) * M_PI / abs(motion.period)) //look around

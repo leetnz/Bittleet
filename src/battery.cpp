@@ -1,6 +1,7 @@
 
 #include "battery.h"
 
+
 #define MAX_MV (10000)
 #define MV_PER_COUNT (10) // Actually 10.24, but close enough.
 
@@ -10,13 +11,16 @@
 #define LOW_BATT_MV (6400)
 #define LOW_BATT_COUNT (LOW_BATT_MV/MV_PER_COUNT)
 
-
-BatteryState_t batteryState(int adcRead) {
+namespace Battery {
+    
+State state(int adcRead) {
     if (adcRead <= 10) {
-        return BatteryState_t::None;
+        return State::None;
     }
     if (adcRead <= LOW_BATT_COUNT) {
-        return BatteryState_t::Low;  
+        return State::Low;  
     }
-    return BatteryState_t::Ok;
+    return State::Ok;
+}
+
 }

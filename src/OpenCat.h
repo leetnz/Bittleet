@@ -252,7 +252,8 @@ class Motion {
       dutyAngles = NULL;
     }
 
-    int lookupAddressByName(char* skillName) {
+    int lookupAddressByName(const char* skillName) {
+      PTL(skillName);
       int skillAddressShift = 0;
       for (byte s = 0; s < NUM_SKILLS; s++) {//save skill info to on-board EEPROM, load skills to SkillList
         byte nameLen = EEPROM.read(SKILLS + skillAddressShift++);
@@ -405,10 +406,51 @@ class Motion {
               }
             }
           }
+          break;
+        }
+        case (Command::Type::Simple): {
+          Command::Simple cmd;
+          if (command.get(cmd)) {
+            switch (cmd) {
+              case (Command::Simple::Rest):                     onBoardEepromAddress = lookupAddressByName("rest"); break;
+              case (Command::Simple::Balance):                  onBoardEepromAddress = lookupAddressByName("balance"); break;
+              case (Command::Simple::Step):                     onBoardEepromAddress = lookupAddressByName("vt"); break;
+              case (Command::Simple::Sit):                      onBoardEepromAddress = lookupAddressByName("sit"); break;
+              case (Command::Simple::Stretch):                  onBoardEepromAddress = lookupAddressByName("str"); break;
+              case (Command::Simple::Greet):                    onBoardEepromAddress = lookupAddressByName("hi"); break;
+              case (Command::Simple::Pushup):                   onBoardEepromAddress = lookupAddressByName("pu"); break;
+              case (Command::Simple::Hydrant):                  onBoardEepromAddress = lookupAddressByName("pee"); break;
+              case (Command::Simple::Check):                    onBoardEepromAddress = lookupAddressByName("ck"); break;
+              case (Command::Simple::Dead):                     onBoardEepromAddress = lookupAddressByName("pd"); break;
+              case (Command::Simple::Zero):                     onBoardEepromAddress = lookupAddressByName("zero"); break;
+              case (Command::Simple::Lifted):                   onBoardEepromAddress = lookupAddressByName("lifted"); break;
+              case (Command::Simple::Dropped):                  onBoardEepromAddress = lookupAddressByName("dropped"); break;
+              case (Command::Simple::Recover):                  onBoardEepromAddress = lookupAddressByName("rc"); break;
+              case (Command::Simple::GyroToggle):               
+              case (Command::Simple::SaveServoCalibration):
+              case (Command::Simple::AbortServoCalibration):
+              case (Command::Simple::ShowJointAngles):
+              case (Command::Simple::Pause):
+              default:
+                break;
+            }
+          }
+          break;
+        }
+        case (Command::Type::WithArgs): {
+          Command::WithArgs cmd;
+          if (command.get(cmd)) {
+            if (cmd.cmd == Command::ArgType::Calibrate) {
+              onBoardEepromAddress = lookupAddressByName("calib");
+              break;
+            }
+          }
+          break;
         }
       }
-      if (onBoardEepromAddress == -1)
+      if (onBoardEepromAddress == -1) {
         return;
+      }
       loadDataByOnboardEepromAddress(onBoardEepromAddress);
     }
 
@@ -491,9 +533,9 @@ void allCalibratedPWM(char * dutyAng, byte offset = 0);
 void shutServos();
 
 template <typename T> void transform( T * target, byte angleDataRatio = 1, float speedRatio = 1, byte offset = 0) {
-  if (speedRatio == 0)
+  if (speedRatio == 0) {
     allCalibratedPWM(target, 8);
-  else {
+  } else {
     int *diff = new int [DOF - offset], maxDiff = 0;
     for (byte i = offset; i < DOF; i++) {
       diff[i - offset] =   currentAng[i] - target[i - offset] * angleDataRatio;
