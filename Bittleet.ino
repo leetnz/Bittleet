@@ -246,7 +246,7 @@ void setup() {
 
     for (byte i = 0; i < 4; i++) {
       PT(EEPROMReadInt(MPUCALIB + 4 + i * 2));
-      PT(" ");
+      PTF(" ");
     }
     PTL();
     mpu.setZAccelOffset(EEPROMReadInt(MPUCALIB + 4));
@@ -332,7 +332,7 @@ void loop() {
     //adjust the thresholds according to your batteries' voltage
     //if set too high, the robot will stop working when the battery still has power.
     //If too low, the robot may not alarm before the battery shuts off
-    PTL("Low power!");
+    PTLF("Low power!");
     beep(15, 50, 50, 3);
     delay(1500); // HOANI TODO: Should be disabling all servos here
   }

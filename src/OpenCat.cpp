@@ -170,9 +170,9 @@ void assignSkillAddressToOnboardEeprom() {
   const char* progmemPointer[] = {zero, };
 
   int skillAddressShift = 0;
-  PT("\n* Assigning ");
+  PTF("\n* Assigning ");
   PT(sizeof(progmemPointer) / 2);
-  PTL(" skill addresses...");
+  PTLF(" skill addresses...");
   for (byte s = 0; s < sizeof(progmemPointer) / 2; s++) { //save skill info to on-board EEPROM, load skills to SkillList
     if (s)
       PTL(s);

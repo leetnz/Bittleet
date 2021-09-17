@@ -457,7 +457,14 @@ class Motion {
     */
 
     void info() {
-      PTL("period: " + String(period) + ",\tdelayBetweenFrames: " + ",\texpected (pitch,roll): (" + expectedRollPitch[0]*M_RAD2DEG + "," + expectedRollPitch[1]*M_RAD2DEG + ")");
+      PTF("period: ");
+      PT(String(period));// + ",\tdelayBetweenFrames: " + ",\texpected (pitch,roll): (" + expectedRollPitch[0]*M_RAD2DEG + "," + expectedRollPitch[1]*M_RAD2DEG + ")");
+      PTF(",\tdelayBetweenFrames: ");// + ",\texpected (pitch,roll): (" + expectedRollPitch[0]*M_RAD2DEG + "," + expectedRollPitch[1]*M_RAD2DEG + ")");
+      PTF(",\texpected (pitch,roll): (");// + expectedRollPitch[0]*M_RAD2DEG + "," + expectedRollPitch[1]*M_RAD2DEG + ")");
+      PT(expectedRollPitch[0]*M_RAD2DEG);
+      PTF(",");
+      PT(expectedRollPitch[1]*M_RAD2DEG);
+      PTLF(")");
       for (int k = 0; k < period * (period > 1 ? WALKING_DOF : 16); k++) {
         PT(String((int8_t)dutyAngles[k]) + ", ");
       }
