@@ -48,8 +48,6 @@ int currentAng[DOF] = {};
 float currentAdjust[DOF] = {};
 int calibratedDuty0[DOF] = {};
 
-char token;
-
 float postureOrWalkingFactor;
 
 float RollPitchDeviation[2];
@@ -239,15 +237,6 @@ void shutServos() {
   }
 }
 
-
-void skillByName(char* skillName, byte angleDataRatio, float speedRatio, bool shutServoAfterward) {
-  motion.loadBySkillName(skillName);
-  transform(motion.dutyAngles, angleDataRatio, speedRatio);
-  if (shutServoAfterward) {
-    shutServos();
-    token = 'd';
-  }
-}
 
 void skillByCommand(Command::Command& cmd, byte angleDataRatio, float speedRatio, bool shutServoAfterward) {
   motion.loadByCommand(cmd);

@@ -185,7 +185,7 @@ void getYPR() {//get YPR angles from FIFO data, takes time
   }
 }
 
-void checkBodyMotion(Command::Command& newCmd)  {
+void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
   //if (!dmpReady) return;
   getYPR();
   // --
@@ -199,7 +199,7 @@ void checkBodyMotion(Command::Command& newCmd)  {
     }
     if (fabs(ypr[1]) > LARGE_PITCH || fabs(ypr[2]) > LARGE_ROLL) {//check again
       if (!hold) {
-        token = T_SKILL;
+        enableMotion = true;
         if (fabs(ypr[2]) > LARGE_ROLL) {
           newCmd = Command::Command(Command::Simple::Recover); // "rc"
         }
@@ -211,7 +211,7 @@ void checkBodyMotion(Command::Command& newCmd)  {
   // recover
   else if (hold) {
     if (hold == 1) {
-      token = T_SKILL;
+      enableMotion = true;
       newCmd = Command::Command(Command::Simple::Balance);
     }
     hold --;
@@ -339,7 +339,6 @@ void setup() {
       delay(20);
     }
     shutServos();
-    token = T_REST;
   }
   beep(30);
 
@@ -352,6 +351,7 @@ void setup() {
 }
 
 void loop() {
+  static bool enableMotion = false;
   static Command::Command newCmd;
   static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
   int battAdcReading = analogRead(BATT);
@@ -379,7 +379,7 @@ void loop() {
       }
       
       if ( Serial.available() > 0) {
-        token = Serial.read();
+        uint8_t token = Serial.read();
         // this block handles argumentless tokens
         switch (token) {
           case T_REST: {
@@ -508,7 +508,7 @@ void loop() {
     {
       if (checkGyro) {
         if (!(timer % skipGyro)) {
-          checkBodyMotion(newCmd);
+          checkBodyMotion(enableMotion, newCmd);
 
         }
         else if (mpuInterrupt || fifoCount >= packetSize)
@@ -526,7 +526,7 @@ void loop() {
         PTLF("Move Err"); // Unexpected...
         // TODO: Should add an error beep type
       } else {
-        token = T_SKILL;
+        enableMotion = true;
         motion.loadByCommand(newCmd);
       }
     } else if (newCmd.type() == Command::Type::Simple) {
@@ -538,23 +538,25 @@ void loop() {
           case Command::Simple::Rest: {
             lastCmd = newCmd;
             skillByCommand(lastCmd);
+            enableMotion = false;
             break;
           }
           case Command::Simple::GyroToggle: { // TODO: This may possibly be a toggle - check logic
             if (!checkGyro) {
-              checkBodyMotion(newCmd);
+              checkBodyMotion(enableMotion, newCmd);
             }
             checkGyro = !checkGyro;
-            token = T_SKILL;
+            enableMotion = true;
             break;
           }
           case Command::Simple::Pause: {
             tStep = !tStep;
             if (tStep) {
               newCmd = Command::Command(); // resume last command.
-              token = T_SKILL;
+              enableMotion = true;
             } else {
               shutServos();
+              enableMotion = false;
             }
             break;
           }
@@ -578,6 +580,7 @@ void loop() {
         }
       }
     } else if (newCmd.type() == Command::Type::WithArgs) {
+      enableMotion = false;
       Command::WithArgs cmd;
       if (newCmd.get(cmd) == false) {
         PTLF("WithArgs Err"); // Unexpected...
@@ -654,13 +657,10 @@ void loop() {
     }
 
     if (newCmd != Command::Command()) {
-      PTL(token);
       beep(8);
 
       //check above
       if (newCmd != lastCmd) {
-        if (token == T_SKILL) { //validating key
-
           motion.loadByCommand(newCmd);
 
           offsetLR = 0;
@@ -736,7 +736,6 @@ void loop() {
                 repeat--;
               }
             }
-            // skillByName("balance", 1, 2, false);
             lastCmd = Command::Command(Command::Simple::Balance);
             skillByCommand(lastCmd, 1, 2, false);
             for (byte a = 0; a < DOF; a++)
@@ -748,15 +747,15 @@ void loop() {
           jointIdx = 3;//DOF; to skip the large adjustment caused by MPU overflow. joint 3 is not used.
           if (newCmd == Command::Simple::Rest) {
             shutServos();
-            token = T_REST;
+            enableMotion = false;
+            lastCmd = newCmd;
           }
-        }
       }
     }
 
     //motion block
     {
-      if (token == T_SKILL) {
+      if (enableMotion) {
         if (jointIdx == DOF) {
             // timer = (timer + 1) % abs(motion.period);
             timer += tStep;

@@ -555,7 +555,6 @@ template <typename T> void transform( T * target, byte angleDataRatio = 1, float
 }
 
 
-void skillByName(char* skillName, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true);
 void skillByCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true);
 
 
