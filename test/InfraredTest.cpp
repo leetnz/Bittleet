@@ -6,6 +6,8 @@
 
 #include "Infrared.h"
 
+using namespace Infrared;
+
 #define IR_CODE_00 (0xA2)
 #define IR_CODE_01 (0x62)
 #define IR_CODE_02 (0xE2)
@@ -29,29 +31,29 @@
 #define IR_CODE_62 (0x52)
 
 //abbreviation //gait/posture/function names
-#define K00 "d"       //rest and shutdown all servos 
-#define K01 "F"       //forward
-#define K02 "g"       //turn off gyro feedback to boost speed
-#define K10 "L"       //left
-#define K11 "balance" //neutral stand up posture
-#define K12 "R"       //right
-#define K20 "p"       //pause motion and shut off all servos 
-#define K21 "B"       //backward
-#define K22 "c"       //calibration mode with IMU turned off
-#define K30 "vt"      //stepping
-#define K31 "cr"      //crawl
-#define K32 "wk"      //walk
-#define K40 "tr"      //trot
-#define K41 "sit"     //sit
-#define K42 "str"     //stretch
-#define K50 "hi"      //greeting
-#define K51 "pu"      //push up
-#define K52 "pee"     //standng with three legs
-#define K60 "ck"      //check around
-#define K61 "pd"      //play dead
-#define K62 "zero"    //zero position
+#define K00 Input::Rest         //rest and shutdown all servos 
+#define K01 Input::Forward      //forward
+#define K02 Input::GyroToggle   //turn off gyro feedback to boost speed
+#define K10 Input::Left         //left
+#define K11 Input::Balance      //neutral stand up posture
+#define K12 Input::Right        //right
+#define K20 Input::Pause        //pause motion and shut off all servos 
+#define K21 Input::Backward     //backward
+#define K22 Input::Calibrate    //calibration mode with IMU turned off
+#define K30 Input::Step         //stepping
+#define K31 Input::Crawl        //crawl
+#define K32 Input::Walk         //walk
+#define K40 Input::Trot         //trot
+#define K41 Input::Sit          //sit
+#define K42 Input::Stretch      //stretch
+#define K50 Input::Greet        //greeting
+#define K51 Input::Pushup       //push up
+#define K52 Input::Hydrant      //standng with three legs
+#define K60 Input::Check        //check around
+#define K61 Input::Dead         //play dead
+#define K62 Input::Zero         //zero position
 
-const std::map<uint8_t, String> validCases = {
+const std::map<uint8_t, Input> validCases = {
     {IR_CODE_00, K00},  {IR_CODE_01, K01},  {IR_CODE_02, K02}, 
     {IR_CODE_10, K10},  {IR_CODE_11, K11},  {IR_CODE_12, K12}, 
     {IR_CODE_20, K20},  {IR_CODE_21, K21},  {IR_CODE_22, K22}, 
@@ -61,15 +63,15 @@ const std::map<uint8_t, String> validCases = {
     {IR_CODE_60, K60},  {IR_CODE_61, K61},  {IR_CODE_62, K62}, 
 };
 
-TEST_CASE("InfraredTest", "[infrared]" ) 
+TEST_CASE("InfraredTest", "[translate]" ) 
 { 
     SECTION("Valid Cases") {
-        for (std::map<uint8_t, String>::const_reference tc : validCases) {
-            REQUIRE(tc.second == Infrared::translate(tc.first));
+        for (std::map<uint8_t, Input>::const_reference tc : validCases) {
+            REQUIRE(tc.second == translate(tc.first));
         }
     }
     
-    SECTION("Invalid returns empty") {
-        REQUIRE("" == Infrared::translate(0x00));
+    SECTION("Invalid returns None") {
+        REQUIRE(Input::None == translate(0x00));
     }
 }
