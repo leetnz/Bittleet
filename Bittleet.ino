@@ -345,7 +345,7 @@ void loop() {
     {
       decode_results results;
       if (irrecv.decode(&results)) {
-        newCmd = Infrared::parser(Infrared::translate((results.value >> 8)), move);
+        newCmd = Infrared::parseSignal((results.value >> 8), move);
         irrecv.resume(); // receive the next value
       }
       

@@ -9,8 +9,8 @@ TEST_OBJ = $(patsubst test/%.cpp,obj/test/%.o,$(TEST_SRC))
 # APP_SRC = $(wildcard src/*.cpp)
 # APP_OBJ = $(patsubst src/%.cpp,obj/src/%.o,$(APP_SRC))
 
-APP_SRC = src/Infrared.cpp
-APP_OBJ = obj/src/Infrared.o
+APP_SRC = src/Infrared.cpp src/Command.cpp
+APP_OBJ = $(patsubst src/%.cpp,obj/src/%.o,$(APP_SRC))
 
 .PHONY: all
 all: test

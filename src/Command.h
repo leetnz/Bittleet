@@ -58,18 +58,18 @@ enum class Simple : uint8_t {
     TOTAL
 };
 
-enum class Direction : uint8_t {
-    Forward = 0,
-    Left,
-    Right,
-    TOTAL
-};
-
 enum class Pace : uint8_t {
     Slow,
     Medium,
     Fast,
     Reverse,
+    TOTAL
+};
+
+enum class Direction : uint8_t {
+    Forward = 0,
+    Left,
+    Right,
     TOTAL
 };
 
