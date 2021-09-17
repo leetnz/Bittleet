@@ -44,8 +44,9 @@ static bool restQ = false;
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 float pulsePerDegree[DOF] = {};
+ServoRange servoRange[DOF] = {};
 int currentAng[DOF] = {};
-float currentAdjust[DOF] = {};
+AdjustAngle currentAdjust[DOF] = {};
 int calibratedDuty0[DOF] = {};
 
 float postureOrWalkingFactor;
@@ -55,7 +56,12 @@ int8_t ramp = 1;
 
 Motion motion;
 
-
+float pulsePerDegreeF(int i) {
+  if (i > DOF) {
+    return 0.0f;
+  }
+  return float(PWM_RANGE) / servoRange[i].toF32();
+}
 
 void beep(int8_t note, float duration, int pause, byte repeat) {
   if (note == 0) {//rest note
@@ -199,7 +205,7 @@ float adjust(byte i) {
   currentAdjust[i] = M_DEG2RAD * (
                        (i > 3 ? postureOrWalkingFactor : 1) *
                        rollAdj - ramp * adaptiveCoefficient(i, 1) * ((i % 4 < 2) ? ( RollPitchDeviation[1]) : RollPitchDeviation[1]));
-  return currentAdjust[i];
+  return currentAdjust[i].toF32();
 }
 
 void saveCalib(int8_t *var) {

@@ -73,6 +73,7 @@
 #include "InstinctBittle.h" //activate the correct header file according to your model
 #include "Command.h" //activate the correct header file according to your model
 #include "trig.h"
+#include "FixedPoint.h"
 
 #define NyBoard_V1_0
 
@@ -99,8 +100,6 @@ void beep(int8_t note, float duration = 10, int pause = 0, byte repeat = 1 );
 void playMelody(int start);
 
 void meow(int repeat = 0, int pause = 200, int startF = 50,  int endF = 200, int increment = 5);
-
-extern char token;
 
 //token list
 #define T_ABORT     'a'
@@ -204,9 +203,13 @@ extern Adafruit_PWMServoDriver pwm;
 
 #define PWM_RANGE (SERVOMAX - SERVOMIN)
 
+typedef FixedPoint<int16_t, 8> AdjustAngle;
+typedef FixedPoint<int8_t, 0> ServoRange;
+
 extern float pulsePerDegree[DOF];
+extern ServoRange servoRange[DOF];
 extern int currentAng[DOF];
-extern float currentAdjust[DOF];
+extern AdjustAngle currentAdjust[DOF];
 extern int calibratedDuty0[DOF];
 
 class Motion;
@@ -214,6 +217,8 @@ extern Motion motion;
 
 
 //--------------------
+
+float pulsePerDegreeF(int i);
 
 //This function will write a 2 byte integer to the eeprom at the specified address and address + 1
 void EEPROMWriteInt(int p_address, int p_value);

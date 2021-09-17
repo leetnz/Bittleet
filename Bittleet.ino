@@ -60,9 +60,7 @@ uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
 uint16_t fifoCount;     // count of all bytes currently in FIFO
 uint8_t fifoBuffer[PACKET_SIZE]; // FIFO storage buffer
 
-// orientation/motion vars
-Quaternion q;           // [w, x, y, z]         quaternion container
-VectorFloat gravity;    // [x, y, z]            gravity vector
+
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
@@ -85,7 +83,6 @@ IRrecv irrecv(IR_RECEIVER);     // create instance of 'irrecv'
 // Local variables
 
 //control related variables
-#define CMD_LEN 10
 static Command::Command lastCmd;
 static byte hold = 0;
 static int8_t offsetLR = 0;
@@ -114,7 +111,11 @@ void getFIFO() {//get FIFO only without further processing
   fifoCount -= packetSize;
 }
 
-void getYPR() {//get YPR angles from FIFO data, takes time
+void getYPR() {
+  // orientation/motion vars
+  Quaternion q;           // [w, x, y, z]         quaternion container
+  VectorFloat gravity;    // [x, y, z]            gravity vector
+  //get YPR angles from FIFO data, takes time
   // wait for MPU interrupt or extra packet(s) available
   //while (!mpuInterrupt && fifoCount < packetSize) ;
   if (mpuInterrupt || fifoCount >= packetSize)
@@ -326,7 +327,8 @@ void setup() {
     lastCmd = Command::Command(Command::Simple::Rest);
     motion.loadByCommand(lastCmd);
     for (int8_t i = DOF - 1; i >= 0; i--) {
-      pulsePerDegree[i] = float(PWM_RANGE) / servoAngleRange(i);
+      // servoRange[i] = servoAngleRange(i);
+      pulsePerDegree[i] = float(PWM_RANGE) /servoAngleRange(i);
       servoCalibs[i] = servoCalib(i);
       calibratedDuty0[i] =  SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegree[i]  * rotationDirection(i) ;
       //PTL(SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegree[i] * rotationDirection(i) );
@@ -732,7 +734,7 @@ void loop() {
             lastCmd = Command::Command(Command::Simple::Balance);
             skillByCommand(lastCmd, 1, 2, false);
             for (byte a = 0; a < DOF; a++)
-              currentAdjust[a] = 0;
+              currentAdjust[a] = 0.0f;
             hold = 0;
           } else {
             transform( motion.dutyAngles, motion.angleDataRatio, 1, firstMotionJoint);
@@ -776,7 +778,7 @@ void loop() {
                         + (checkGyro ?
                            (!(timer % skipGyro)  ?
                             adjust(jointIdx)
-                            : currentAdjust[jointIdx])
+                            : currentAdjust[jointIdx].toF32())
                            : 0)
                        );
   
