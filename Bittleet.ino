@@ -98,12 +98,7 @@ static byte jointIdx = 0;
 
 static int8_t servoCalibs[DOF] = {};
 
-static int8_t tStep = 1;
-
-bool soundLightSensorQ = false;
-
-
-
+static int8_t tStep = 1; // TODO - this should be a motion flag
 
 
 
@@ -345,8 +340,6 @@ void setup() {
   pinMode(BATT, INPUT);
   pinMode(BUZZER, OUTPUT);
 
-  soundLightSensorQ = sensorConnectedQ(READING_COUNT);//test if the Petoi Sound&Light sensor is connected
-  lightLag = analogRead(LIGHT);
   meow();
 }
 

@@ -94,13 +94,6 @@
 #define IR_RECEIVER 4 // Signal Pin of IR receiver to Arduino Digital Pin 4
 #define BUZZER 5
 #define GYRO
-#define ULTRA_SOUND
-
-#define SOUND A2
-#define LIGHT A3
-#define READING_COUNT 100
-
-extern int lightLag;
 
 void beep(int8_t note, float duration = 10, int pause = 0, byte repeat = 1 );
 void playMelody(int start);

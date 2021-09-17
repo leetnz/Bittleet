@@ -55,10 +55,6 @@ int8_t ramp = 1;
 
 Motion motion;
 
-int lightLag = 0;
-
-
-
 
 
 void beep(int8_t note, float duration, int pause, byte repeat) {
@@ -270,72 +266,3 @@ char getUserInput() {//limited to one character
   return Serial.read();
 }
 
-
-bool sensorConnectedQ(int n) {
-  float mean = 0;
-  float bLag = analogRead(A3);
-  for (int i = 0; i < READING_COUNT; i++) {
-    int a, b;
-    a = analogRead(A2);
-    b = analogRead(A3);
-    mean = mean + ((a - b) * (a - b) - mean) / (i + 1);
-
-    if (abs(a - b) > 50 && abs(b - bLag) < 5) {
-      return true;
-    }
-
-    bLag = b;
-    delay(1);
-  }
-  return sqrt(mean) > 20 ? true : false;
-}
-
-
-// TODO: See if we have this - implement if we do
-// int SoundLightSensorPattern(char *cmd) { //under construction, and will only be active with our new sound and light sensor connected.
-//   int sound = analogRead(SOUND); //larger sound has larger readings
-//   int light = analogRead(LIGHT); //lower light has larger readings
-//   Serial.print(1024);
-//   Serial.print('\t');
-//   Serial.print(0);
-//   Serial.print('\t');
-//   Serial.print(sound);
-//   Serial.print('\t');
-//   Serial.println(light);
-//   if (light > 800 && sound < 500) { //dark condition
-//     if (!restQ) {
-//       skillByName("rest", 1, 1, 1);
-//       delay(500);
-//       restQ = true;
-//     }
-//   }
-//   else {
-//     restQ = false;
-
-//     if (sound > 700) {
-
-//       for (byte l = 0; l < 10; l++) {
-//         lightLag = light;
-//         light = analogRead(LIGHT); //lower light has larger readings
-//         if (light - lightLag  < - 40) {
-//           beep(15);
-//           PTL("Bang!");
-//           strcpy(cmd, "pd");
-//           token = 'k';
-//           return 4;
-//         }
-//       }
-
-//       strcpy(cmd, "balance");
-
-//     }
-//     else
-//       strcpy(cmd, "sit");
-
-
-//     token = 'k';
-//     return 4;
-//     //delay(10);
-//   }
-//   return 0;
-// }
