@@ -44,7 +44,7 @@ static bool restQ = false;
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 ServoRange servoRange[DOF] = {};
-int currentAng[DOF] = {};
+int16_t currentAng[DOF] = {};
 AdjustAngle currentAdjust[DOF] = {};
 int calibratedDuty0[DOF] = {};
 

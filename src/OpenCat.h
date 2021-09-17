@@ -70,7 +70,7 @@
 
 //postures and movements trained by RongzhongLi
 #include<Arduino.h>
-#include "InstinctBittle.h" //activate the correct header file according to your model
+#include "Bittle.h" //activate the correct header file according to your model
 #include "Command.h" //activate the correct header file according to your model
 #include "trig.h"
 #include "FixedPoint.h"
@@ -101,26 +101,6 @@ void playMelody(int start);
 
 void meow(int repeat = 0, int pause = 200, int startF = 50,  int endF = 200, int increment = 5);
 
-//token list
-#define T_ABORT     'a'
-#define T_BEEP      'b'
-#define T_CALIBRATE 'c'
-#define T_REST      'd'
-#define T_GYRO      'g'
-#define T_HELP      'h'
-#define T_INDEXED   'i'
-#define T_JOINTS    'j'
-#define T_SKILL     'k'
-#define T_LISTED    'l'
-#define T_MOVE      'm'
-#define T_SIMULTANEOUS_MOVE 'M'
-#define T_MELODY    'o'
-#define T_PAUSE     'p'
-#define T_RAMP      'r'
-#define T_SAVE      's'
-#define T_MEOW      'u'
-#define T_UNDEFINED 'w'
-#define T_XLEG      'x'
 
 
 
@@ -168,7 +148,6 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 //the above constants from onboard EEPROM to I2C EEPROM
 
 //servo constants
-#define DOF 16
 #define PWM_FACTOR 4
 #define MG92B_MIN 170*PWM_FACTOR
 #define MG92B_MAX 550*PWM_FACTOR

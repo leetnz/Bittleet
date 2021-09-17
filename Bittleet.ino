@@ -30,6 +30,7 @@
 #define MAIN_SKETCH
 #include "src/OpenCat.h"
 #include "src/Command.h"
+#include "src/Comms.h"
 
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
@@ -350,128 +351,7 @@ void loop() {
       }
       
       if ( Serial.available() > 0) {
-        uint8_t token = Serial.read();
-        // this block handles argumentless tokens
-        switch (token) {
-          case T_REST: {
-              newCmd = Command::Command(Command::Simple::Rest);
-              break;
-            }
-          case T_GYRO: {
-              newCmd = Command::Command(Command::Simple::GyroToggle);
-              break;
-            }
-          case T_PAUSE: {
-              newCmd = Command::Command(Command::Simple::Pause);
-              break;
-            }
-          case T_SAVE: {
-              newCmd = Command::Command(Command::Simple::SaveServoCalibration);
-              break;
-            }
-          case T_ABORT: {
-              newCmd = Command::Command(Command::Simple::AbortServoCalibration);
-              break;
-            }
-
-          // TODO: binary protocol...
-          // this block handles array like arguments
-          // case T_INDEXED: //indexed joint motions: joint0, angle0, joint1, angle1, ... (binary encoding)
-          // case T_LISTED: //list of all 16 joint: angle0, angle2,... angle15 (binary encoding)
-          //   //case T_MELODY: //for melody
-          //   {
-          //     String inBuffer = Serial.readStringUntil('~');
-          //     int8_t numArg = inBuffer.length();
-          //     char* list = inBuffer.c_str();
-          //     char *targetFrame = new char [DOF];
-          //     for (int i = 0; i < DOF; i += 1) {
-          //       targetFrame[i] = currentAng[i];
-          //     }
-          //     if (token == T_INDEXED) {
-          //       for (int i = 0; i < numArg; i += 2) {
-          //         targetFrame[list[i]] = list[i + 1];
-          //       }
-          //     }
-          //     else if (token == T_LISTED) {
-          //       for (int i = 0; i < DOF; i += 1) {
-          //         targetFrame[i] = list[i];
-          //       }
-          //     }
-          //     transform(targetFrame, 1, 3); //need to add angleDataRatio if the angles are large
-          //     delete [] targetFrame;
-
-          //     //            if (token == T_INDEXED) {
-          //     //              for (int i = 0; i < numArg; i += 2) {
-          //     //                calibratedPWM(list[i], list[i + 1]);
-          //     //              }
-          //     //            }
-          //     //            else if (token == T_LISTED) {
-          //     //              allCalibratedPWM(list);
-          //     //            }
-
-          //     break;
-          //   }
-          case T_JOINTS: { //show the list of current joint anles
-              newCmd = Command::Command(Command::Simple::ShowJointAngles);
-              break;
-          }
-          case T_CALIBRATE: //calibration
-          case T_MOVE: //move multiple indexed joints to angles once at a time (ASCII format entered in the serial monitor)
-          case T_SIMULTANEOUS_MOVE: //move multiple indexed joints to angles simultaneously (ASCII format entered in the serial monitor)
-          case T_MEOW: //meow (repeat, increament)
-          case T_BEEP: //beep(tone, duration): tone 0 is pause, duration range is 0~255
-          {
-              Command::WithArgs cmd = {};
-              cmd.len = 0;
-              switch (token) {
-                case (T_CALIBRATE):         cmd.cmd = Command::ArgType::Calibrate; break;
-                case (T_MOVE):              cmd.cmd = Command::ArgType::MoveSequentially; break;
-                case (T_SIMULTANEOUS_MOVE): cmd.cmd = Command::ArgType::MoveSimultaneously; break;
-                case (T_MEOW):              cmd.cmd = Command::ArgType::Meow; break;
-                case (T_BEEP):              cmd.cmd = Command::ArgType::Beep; break;
-              }
-
-              if (token == T_SIMULTANEOUS_MOVE) {
-                cmd.len = DOF;
-                for (int i = 0; i < DOF; i += 1) {
-                  cmd.args[i] = currentAng[i];
-                }
-              }
-              String inBuffer = Serial.readStringUntil('\n');
-              char temp[64]  = {'\0'};
-              strcpy(temp, inBuffer.c_str());
-              char *pch;
-              pch = strtok(temp, " ,");
-              do {  //it supports combining multiple commands at one time
-                //for example: "m8 40 m8 -35 m 0 50" can be written as "m8 40 8 -35 0 50"
-                //the combined commands should be less than four. string len <=30 to be exact.
-                int target[2] = {};
-                byte inLen = 0;
-                for (byte b = 0; b < 2 && pch != NULL; b++) {
-                  target[b] = atoi(pch);
-                  pch = strtok(NULL, " ,\t");
-                  inLen++;
-                }
-                if (inLen != 2) {
-                  break; // Args are expected to arrive in pairs.
-                }
-                if (token == T_SIMULTANEOUS_MOVE) {
-                  cmd.args[target[0]] = (int8_t)target[1];
-                } else {
-                  cmd.args[cmd.len++] = (int8_t)target[0]; 
-                  cmd.args[cmd.len++] = (int8_t)target[1]; 
-                }
-              } while (pch != NULL);
-              newCmd = Command::Command(cmd);
-              break;
-          }
-
-
-          default: {
-            break;
-          }
-        }
-        while (Serial.available() && Serial.read()); //flush the remaining serial buffer in case the commands are parsed incorrectly
+        newCmd = Comms::parseSerial(Serial, move, currentAng);
       }
     }
 
