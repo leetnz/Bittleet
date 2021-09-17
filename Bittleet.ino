@@ -350,8 +350,9 @@ void loop() {
         irrecv.resume(); // receive the next value
       }
       
-      if ( Serial.available() > 0) {
-        newCmd = Comms::parseSerial(Serial, move, currentAng);
+      Command::Command serialCmd = Comms::parseSerial(Serial, move, currentAng);
+      if (serialCmd.type() != Command::Type::None) {
+        newCmd = serialCmd;
       }
     }
 

@@ -1,7 +1,7 @@
 #ifndef _BITTLEET_INFRARED_H_
-#define  _BITTLEET_INFRARED_H_
+#define _BITTLEET_INFRARED_H_
 
-#include<Arduino.h>
+#include <Arduino.h>
 #include "Command.h"
 
 

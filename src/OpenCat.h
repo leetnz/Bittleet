@@ -186,7 +186,7 @@ typedef FixedPoint<int16_t, 8> AdjustAngle;
 typedef FixedPoint<uint8_t, 0> ServoRange;
 
 extern ServoRange servoRange[DOF];
-extern int currentAng[DOF];
+extern int16_t currentAng[DOF];
 extern AdjustAngle currentAdjust[DOF];
 extern int calibratedDuty0[DOF];
 

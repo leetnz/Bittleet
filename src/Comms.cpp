@@ -25,8 +25,8 @@
 namespace Comms {
 
 Command::Command parseSerial(Stream& serial, const Command::Move& move,const int16_t* currentAngles ) {
-    while (Serial.available() > 0) {
-        uint8_t token = Serial.read();
+    while (serial.available() > 0) {
+        uint8_t token = serial.read();
         // this block handles argumentless tokens
         switch (token) {
             case T_REST: {
@@ -69,7 +69,7 @@ Command::Command parseSerial(Stream& serial, const Command::Move& move,const int
                         cmd.args[i] = currentAngles[i];
                     }
                 }
-                String inBuffer = Serial.readStringUntil('\n');
+                String inBuffer = serial.readStringUntil('\n');
                 char temp[64]  = {'\0'};
                 strcpy(temp, inBuffer.c_str());
                 char *pch;
@@ -101,5 +101,7 @@ Command::Command parseSerial(Stream& serial, const Command::Move& move,const int
             default: { break; } // Try again.
         }
     }
+    return Command::Command();
 }
+
 } // namespace Comms

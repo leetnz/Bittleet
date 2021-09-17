@@ -1,7 +1,7 @@
 #ifndef _BITTLEET_COMMS_H_
 #define _BITTLEET_COMMS_H_
 
-#include <arduino.h>
+#include <Arduino.h>
 #include "Command.h"
 
 namespace Comms {
