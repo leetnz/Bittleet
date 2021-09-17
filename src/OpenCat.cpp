@@ -43,7 +43,6 @@ static bool restQ = false;
 // called this way, it uses the default address 0x40
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-float pulsePerDegree[DOF] = {};
 ServoRange servoRange[DOF] = {};
 int currentAng[DOF] = {};
 AdjustAngle currentAdjust[DOF] = {};
@@ -57,7 +56,7 @@ int8_t ramp = 1;
 Motion motion;
 
 float pulsePerDegreeF(int i) {
-  if (i > DOF) {
+  if (i >= DOF) {
     return 0.0f;
   }
   return float(PWM_RANGE) / servoRange[i].toF32();
@@ -211,14 +210,14 @@ float adjust(byte i) {
 void saveCalib(int8_t *var) {
   for (byte i = 0; i < DOF; i++) {
     EEPROM.update(CALIB + i, var[i]);
-    calibratedDuty0[i] = SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + var[i]) * pulsePerDegree[i] * rotationDirection(i);
+    calibratedDuty0[i] = SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + var[i]) * pulsePerDegreeF(i) * rotationDirection(i);
   }
 }
 
 void calibratedPWM(byte i, float angle, float speedRatio) {
-  int duty0 = calibratedDuty0[i] + currentAng[i] * pulsePerDegree[i] * rotationDirection(i);
+  int duty0 = calibratedDuty0[i] + currentAng[i] * pulsePerDegreeF(i) * rotationDirection(i);
   currentAng[i] = angle;
-  int duty = calibratedDuty0[i] + angle * pulsePerDegree[i] * rotationDirection(i);
+  int duty = calibratedDuty0[i] + angle * pulsePerDegreeF(i) * rotationDirection(i);
   duty = max(SERVOMIN , min(SERVOMAX , duty));
   byte steps = byte(round(abs(duty - duty0) / 1.0/*degreeStep*/ / speedRatio)); //default speed is 1 degree per step
   for (byte s = 0; s <= steps; s++) {

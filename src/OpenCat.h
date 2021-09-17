@@ -204,9 +204,8 @@ extern Adafruit_PWMServoDriver pwm;
 #define PWM_RANGE (SERVOMAX - SERVOMIN)
 
 typedef FixedPoint<int16_t, 8> AdjustAngle;
-typedef FixedPoint<int8_t, 0> ServoRange;
+typedef FixedPoint<uint8_t, 0> ServoRange;
 
-extern float pulsePerDegree[DOF];
 extern ServoRange servoRange[DOF];
 extern int currentAng[DOF];
 extern AdjustAngle currentAdjust[DOF];

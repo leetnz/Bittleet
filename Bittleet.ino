@@ -111,6 +111,9 @@ void getFIFO() {//get FIFO only without further processing
   fifoCount -= packetSize;
 }
 
+#define MPU_INT_STATUS_OVERFLOW (0x10)
+#define MPU_INT_STATUS_DATARDY  (0x01)
+
 void getYPR() {
   // orientation/motion vars
   Quaternion q;           // [w, x, y, z]         quaternion container
@@ -126,57 +129,32 @@ void getYPR() {
 
     // get current FIFO count
     fifoCount = mpu.getFIFOCount();
-    //PTL(fifoCount);
     // check for overflow (this should never happen unless our code is too inefficient)
-    if ((mpuIntStatus & 0x10) || fifoCount > OVERFLOW_THRESHOLD) { //1024) {
+    if ((mpuIntStatus & MPU_INT_STATUS_OVERFLOW) || fifoCount > OVERFLOW_THRESHOLD) { //1024) {
       // reset so we can continue cleanly
       mpu.resetFIFO();
-      // otherwise, check for DMP data ready interrupt (this should happen frequently)
-
-      // -- RzLi --
-#ifdef FIX_OVERFLOW
-#ifdef DEVELOPER
-      PTLF("reset FIFO!");//FIFO overflow! Using last reading!
-#endif
       lag = (lag - 1 + HISTORY) % HISTORY;
-#endif
+
       // --
-    }
-    else if (mpuIntStatus & 0x02) {
+    } else if (mpuIntStatus & MPU_INT_STATUS_DATARDY) {
       // wait for correct available data length, should be a VERY short wait
       getFIFO();
 
-#ifdef OUTPUT_READABLE_YAWPITCHROLL
       // display Euler angles in degrees
       mpu.dmpGetQuaternion(&q, fifoBuffer);
       mpu.dmpGetGravity(&gravity, &q);
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-#ifdef MPU_YAW180
-      ypr[2] = -ypr[2];
-      ypr[1] = -ypr[1];
-
-#endif
-#endif
-      for (byte g = 1; g < 3; g++)
+      for (byte g = 1; g < 3; g++) {
         ypr[g] *= M_RAD2DEG;        //ypr converted to degree
+      }
 
       // overflow is detected after the ypr is read. it's necessary to keep a lag record of previous reading.  -- RzLi --
-#ifdef FIX_OVERFLOW
       for (byte g = 1; g < 3; g++) {
         yprLag[lag][g] = ypr[g];
         ypr[g] = yprLag[(lag - 1 + HISTORY) % HISTORY][g] ;
       }
       lag = (lag + 1) % HISTORY;
-#endif
-
-#ifdef DEVELOPER
-      PT(ypr[0]);
-      PTF("\t");
-      PT(ypr[1]);
-      PTF("\t");
-      PTL(ypr[2]);
-#endif
     }
   }
 }
@@ -327,11 +305,10 @@ void setup() {
     lastCmd = Command::Command(Command::Simple::Rest);
     motion.loadByCommand(lastCmd);
     for (int8_t i = DOF - 1; i >= 0; i--) {
-      // servoRange[i] = servoAngleRange(i);
-      pulsePerDegree[i] = float(PWM_RANGE) /servoAngleRange(i);
+      servoRange[i] = servoAngleRange(i);
       servoCalibs[i] = servoCalib(i);
-      calibratedDuty0[i] =  SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegree[i]  * rotationDirection(i) ;
-      //PTL(SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegree[i] * rotationDirection(i) );
+      calibratedDuty0[i] =  SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegreeF(i)  * rotationDirection(i) ;
+      //PTL(SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegreeF(i) * rotationDirection(i) );
       calibratedPWM(i, motion.dutyAngles[i]);
       delay(20);
     }
@@ -603,7 +580,7 @@ void loop() {
                 angle = servoCalibs[index] + angle + 1000;
               }
               servoCalibs[index] = angle;
-              int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + motion.dutyAngles[index]) * pulsePerDegree[index] * rotationDirection(index);
+              int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + motion.dutyAngles[index]) * pulsePerDegreeF(index) * rotationDirection(index);
               pwm.setPWM(pin(index), 0,  duty);
             }
             break;
@@ -620,7 +597,7 @@ void loop() {
               //      - we can probably simplify this a lot.
               angleStep = floor((angle - currentAng[index]) / angleInterval);
               for (int a = 0; a < abs(angleStep); a++) {
-                int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + currentAng[index] + a * angleInterval * angleStep / abs(angleStep)) * pulsePerDegree[index] * rotationDirection(index);
+                int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + currentAng[index] + a * angleInterval * angleStep / abs(angleStep)) * pulsePerDegreeF(index) * rotationDirection(index);
                 pwm.setPWM(pin(index), 0,  duty);
               }
               currentAng[index] = motion.dutyAngles[index] = angle;
