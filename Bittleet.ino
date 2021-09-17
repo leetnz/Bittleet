@@ -47,8 +47,7 @@
 //#endif
 #define HISTORY 2
 int8_t lag = 0;
-float ypr[3];         // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
-float yprLag[HISTORY][3];
+
 
 MPU6050 mpu;
 #define OUTPUT_READABLE_YAWPITCHROLL
@@ -114,7 +113,14 @@ void getFIFO() {//get FIFO only without further processing
 #define MPU_INT_STATUS_OVERFLOW (0x10)
 #define MPU_INT_STATUS_DATARDY  (0x01)
 
+#define YPR_YAW (0)
+#define YPR_PITCH (1)
+#define YPR_ROLL (2)
+static float ypr[3] = {}; // TODO: We never use yaw...
+
 void getYPR() {
+  
+  static bool processLast = false;
   // orientation/motion vars
   Quaternion q;           // [w, x, y, z]         quaternion container
   VectorFloat gravity;    // [x, y, z]            gravity vector
@@ -133,28 +139,23 @@ void getYPR() {
     if ((mpuIntStatus & MPU_INT_STATUS_OVERFLOW) || fifoCount > OVERFLOW_THRESHOLD) { //1024) {
       // reset so we can continue cleanly
       mpu.resetFIFO();
-      lag = (lag - 1 + HISTORY) % HISTORY;
+      processLast = false; // Use the previous read.
 
       // --
     } else if (mpuIntStatus & MPU_INT_STATUS_DATARDY) {
+      // We only find out of the last read was an error if the next read is good. So we can only rely on previous reads.
+      if (processLast) {
+        // get Euler angles in degrees
+        mpu.dmpGetQuaternion(&q, fifoBuffer);
+        mpu.dmpGetGravity(&gravity, &q);
+        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        ypr[0] = ypr[0] * M_RAD2DEG;
+        ypr[1] = ypr[1] * M_RAD2DEG;
+        ypr[2] = ypr[2] * M_RAD2DEG;
+      }
       // wait for correct available data length, should be a VERY short wait
       getFIFO();
-
-      // display Euler angles in degrees
-      mpu.dmpGetQuaternion(&q, fifoBuffer);
-      mpu.dmpGetGravity(&gravity, &q);
-      mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-
-      for (byte g = 1; g < 3; g++) {
-        ypr[g] *= M_RAD2DEG;        //ypr converted to degree
-      }
-
-      // overflow is detected after the ypr is read. it's necessary to keep a lag record of previous reading.  -- RzLi --
-      for (byte g = 1; g < 3; g++) {
-        yprLag[lag][g] = ypr[g];
-        ypr[g] = yprLag[(lag - 1 + HISTORY) % HISTORY][g] ;
-      }
-      lag = (lag + 1) % HISTORY;
+      processLast = true;
     }
   }
 }
@@ -164,17 +165,16 @@ void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
   getYPR();
   // --
   //deal with accidents
-  if (fabs(ypr[1]) > LARGE_PITCH || fabs(ypr[2]) > LARGE_ROLL) {//wait until stable
+  if (fabs(ypr[YPR_YAW]) > LARGE_PITCH || fabs(ypr[YPR_ROLL]) > LARGE_ROLL) {//wait until stable
     if (!hold){
       for (byte w = 0; w < 50; w++) {
-        getYPR();
         delay(10);
       }
     }
-    if (fabs(ypr[1]) > LARGE_PITCH || fabs(ypr[2]) > LARGE_ROLL) {//check again
+    if (fabs(ypr[YPR_PITCH]) > LARGE_PITCH || fabs(ypr[YPR_ROLL]) > LARGE_ROLL) {//check again
       if (!hold) {
         enableMotion = true;
-        if (fabs(ypr[2]) > LARGE_ROLL) {
+        if (fabs(ypr[YPR_ROLL]) > LARGE_ROLL) {
           newCmd = Command::Command(Command::Simple::Recover); // "rc"
         }
       }
@@ -200,7 +200,6 @@ void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
   const float levelTolerance[2] = {ROLL_LEVEL_TOLERANCE, PITCH_LEVEL_TOLERANCE}; //the body is still considered as level, no angle adjustment
   for (byte i = 0; i < 2; i++) {
     RollPitchDeviation[i] = ypr[2 - i] - motion.expectedRollPitch[i]; //all in degrees
-    //PTL(RollPitchDeviation[i]);
     RollPitchDeviation[i] = sign(ypr[2 - i]) * max(fabs(RollPitchDeviation[i]) - levelTolerance[i], 0);//filter out small angles
   }
 
