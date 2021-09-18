@@ -24,23 +24,23 @@ namespace Infrared {
 #define IR_CODE_61 (0x4A)   //play dead
 #define IR_CODE_62 (0x52)   //zero position
 
-Command::Command parseSignal(uint8_t signal, const Command::Move& move) {
+Command::Command parseSignal(uint8_t signal, const Command::Move& lastMove) {
     using namespace Command;
 
     switch (signal) {
         case IR_CODE_00:    return Command::Command(Simple::Rest);    
         case IR_CODE_01:    return Command::Command(Move{Pace::Medium, Direction::Forward});
         case IR_CODE_02:    return Command::Command(Simple::GyroToggle);  
-        case IR_CODE_10:    return Command::Command(Move{move.pace, Direction::Left});
+        case IR_CODE_10:    return Command::Command(Direction::Left, lastMove);
         case IR_CODE_11:    return Command::Command(Simple::Balance);
-        case IR_CODE_12:    return Command::Command(Move{move.pace, Direction::Right});
+        case IR_CODE_12:    return Command::Command(Direction::Right, lastMove);
         case IR_CODE_20:    return Command::Command(Simple::Pause);
-        case IR_CODE_21:    return Command::Command(Move{Pace::Reverse, move.direction});
+        case IR_CODE_21:    return Command::Command(Pace::Reverse, lastMove);
         case IR_CODE_22:    return Command::Command(WithArgs{ArgType::Calibrate, 0, {}});
         case IR_CODE_30:    return Command::Command(Simple::Step);
-        case IR_CODE_31:    return Command::Command(Move{Pace::Slow, move.direction});
-        case IR_CODE_32:    return Command::Command(Move{Pace::Medium, move.direction});
-        case IR_CODE_40:    return Command::Command(Move{Pace::Fast, move.direction});
+        case IR_CODE_31:    return Command::Command(Pace::Slow, lastMove);
+        case IR_CODE_32:    return Command::Command(Pace::Medium, lastMove);
+        case IR_CODE_40:    return Command::Command(Pace::Fast, lastMove);
         case IR_CODE_41:    return Command::Command(Simple::Sit);
         case IR_CODE_42:    return Command::Command(Simple::Stretch);
         case IR_CODE_50:    return Command::Command(Simple::Greet);

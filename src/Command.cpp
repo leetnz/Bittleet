@@ -3,6 +3,19 @@
 
 namespace Command {
 
+Command::Command(const Direction& cmd, const Move& lastMove) : _type(Type::Move) {
+    if (cmd == Direction::Forward) {
+        _move = Move{Pace::Medium, Direction::Forward};
+    } else {
+        _move = Move{lastMove.pace, cmd};
+    }
+}
+
+Command::Command(const Pace& cmd, const Move& lastMove) : _type(Type::Move) {
+    _move = Move{cmd, lastMove.direction};
+}
+
+
 bool Command::operator!=(const Simple& other) const {
     return ((operator==(other) == false));
 }
