@@ -6,7 +6,6 @@
 // License - MIT
 //
 
-
 #include "catch.hpp"
 
 #include <vector>

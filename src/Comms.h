@@ -35,6 +35,13 @@ class SerialComms {
         Command::ArgType _argType;
         char _argStr[MAX_STRING_LENGTH + 1]  = {'\0'}; // Note, +1 so we always have a terminating character '\0'
         uint8_t _argStrLen = 0;
+
+        bool _parseSingle(uint8_t byte, Command::Command& result);
+        bool _parseSkill(uint8_t byte, const Command::Move& lastMove, Command::Command& result);
+        bool _parseWithArgs(uint8_t byte, const int16_t* currentAngles, Command::Command& result);
+
+        void _toArgs(Command::ArgType argType);
+        bool _extractArgsFromString(Command::WithArgs& cmd);
 };
 
 }

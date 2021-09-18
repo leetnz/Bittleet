@@ -97,9 +97,6 @@ static int8_t servoCalibs[DOF] = {};
 
 static int8_t tStep = 1; // TODO - this should be a motion flag
 
-
-
-
 void getFIFO() {//get FIFO only without further processing
   while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
@@ -176,7 +173,7 @@ void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
       if (!hold) {
         enableMotion = true;
         if (fabs(ypr[YPR_ROLL]) > LARGE_ROLL) {
-          newCmd = Command::Command(Command::Simple::Recover); // "rc"
+          newCmd = Command::Command(Command::Simple::Recover);
         }
       }
       hold = 10;
@@ -197,14 +194,13 @@ void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
       meow();
     }
   }
+  // TODO: Note sure about this logic for small angle filtering
   //calculate deviation
   const float levelTolerance[2] = {ROLL_LEVEL_TOLERANCE, PITCH_LEVEL_TOLERANCE}; //the body is still considered as level, no angle adjustment
   for (byte i = 0; i < 2; i++) {
     RollPitchDeviation[i] = ypr[2 - i] - motion.expectedRollPitch[i]; //all in degrees
     RollPitchDeviation[i] = sign(ypr[2 - i]) * max(fabs(RollPitchDeviation[i]) - levelTolerance[i], 0);//filter out small angles
   }
-
-  //PTL(jointIdx);
 }
 
 void initI2C() {
@@ -326,10 +322,6 @@ void loop() {
   int battAdcReading = analogRead(BATT);
   Battery::State battState = Battery::state(battAdcReading);
   if (battState == Battery::State::Low) { //if battery voltage < threshold, it needs to be recharged
-    //give the robot a break when voltage drops after sprint
-    //adjust the thresholds according to your batteries' voltage
-    //if set too high, the robot will stop working when the battery still has power.
-    //If too low, the robot may not alarm before the battery shuts off
     PTLF("Low power!");
     beep(15, 50, 50, 3);
     delay(1500); // HOANI TODO: Should be disabling all servos here

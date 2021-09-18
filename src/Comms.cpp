@@ -28,8 +28,6 @@
 #define T_RAMP      'r'
 #define T_SAVE      's'
 #define T_SKILL     'k'
-#define T_SIT       't'
-#define T_STRETCH   'T'
 #define T_MEOW      'u'
 #define T_UNDEFINED 'w'
 #define T_XLEG      'x'
@@ -56,113 +54,25 @@
 namespace Comms {
 
 Command::Command SerialComms::parse(const Command::Move& lastMove, const int16_t* currentAngles) {
+    Command::Command result;
     while (Serial.available() > 0) {
+        uint8_t byte = Serial.read();
         switch (_state) {
             case (State::None): {
-                uint8_t token = Serial.read();
-                switch (token) {
-                    case T_PAUSE:       return Command::Command(Command::Simple::Pause);
-                    case T_GYRO:        return Command::Command(Command::Simple::GyroToggle);
-                    case T_REST:        return Command::Command(Command::Simple::Rest);
-                    case T_SIT:         return Command::Command(Command::Simple::Sit);
-                    case T_STRETCH:     return Command::Command(Command::Simple::Stretch);
-                    // Calibration Commands
-                    case T_SAVE:        return Command::Command(Command::Simple::SaveServoCalibration);
-                    case T_ABORT:       return Command::Command(Command::Simple::AbortServoCalibration);
-                    // Diagnostic Commands
-                    case T_JOINTS:      return Command::Command(Command::Simple::ShowJointAngles);
-                    case T_HELP:        return Command::Command(Command::Simple::ShowHelp);
-                    // Commands with arguments
-                    case T_CALIBRATE:   _argType = Command::ArgType::Calibrate; _argStrLen = 0; _state = State::Args; break;
-                    case T_MOVE:        _argType = Command::ArgType::MoveSequentially; _argStrLen = 0; _state = State::Args; break;
-                    case T_MEOW:        _argType = Command::ArgType::Meow; _argStrLen = 0; _state = State::Args; break;
-                    case T_BEEP:        _argType = Command::ArgType::Beep; _argStrLen = 0; _state = State::Args; break;
-                    case T_SIMULTANEOUS_MOVE: _argType = Command::ArgType::MoveSimultaneously; _argStrLen = 0; _state = State::Args; break;
-                    case T_SKILL: {
-                        _state = State::Skill;
-                        break;
-                    }
-
-                    default: { break; } // Try again.
+                if (_parseSingle(byte, result)) {
+                    return result;
                 }
                 break;
             }
             case (State::Skill): {
-                _state = State::None; // Will return to None regardless of result.
-                uint8_t skill = Serial.read();
-                switch (skill) {  
-                    case S_FORWARD:     return Command::Command(Command::Direction::Forward, lastMove);
-                    case S_LEFT:        return Command::Command(Command::Direction::Left, lastMove);
-                    case S_RIGHT:       return Command::Command(Command::Direction::Right, lastMove);
-                    case S_BACKWARD:    return Command::Command(Command::Pace::Reverse, lastMove);
-                    case S_BALANCE:     return Command::Command(Command::Simple::Balance);
-                    case S_STEP:        return Command::Command(Command::Simple::Step);
-                    case S_CRAWL:       return Command::Command(Command::Pace::Slow, lastMove);
-                    case S_WALK:        return Command::Command(Command::Pace::Medium, lastMove);
-                    case S_TROT:        return Command::Command(Command::Pace::Fast, lastMove);
-                    case S_SIT:         return Command::Command(Command::Simple::Sit);
-                    case S_STRETCH:     return Command::Command(Command::Simple::Stretch);
-                    case S_GREET:       return Command::Command(Command::Simple::Greet);
-                    case S_PUSHUP:      return Command::Command(Command::Simple::Pushup);
-                    case S_HYDRANT:     return Command::Command(Command::Simple::Hydrant);
-                    case S_CHECK:       return Command::Command(Command::Simple::Check);
-                    case S_DEAD:        return Command::Command(Command::Simple::Dead);
-                    case S_ZERO:        return Command::Command(Command::Simple::Zero);
-                    default:            break;
-                };
+                if (_parseSkill(byte, lastMove, result)) {
+                    return result;
+                }
                 break;
             }
             case (State::Args): {
-                uint8_t nextByte = Serial.read();
-                if (nextByte != '\n') {
-                    if (_argStrLen < MAX_STRING_LENGTH) {
-                        _argStr[_argStrLen++] = nextByte;
-                    } else {
-                        _state = State::None; // Too many bytes!
-                    }
-                } else {
-                    _state = State::None;
-
-                    Command::WithArgs cmd = {};
-                    cmd.len = 0;
-
-                    if (_argType == Command::ArgType::MoveSimultaneously) {
-                        for (int i = 0; i < DOF; i += 1) {
-                            cmd.args[i] = currentAngles[i];
-                        }
-                    }
-
-                    char *pch;
-                    pch = strtok(_argStr, " ,");
-                    while (pch != NULL) {
-                        if (cmd.len >= COMMAND_MAX_ARGS) {
-                            return Command::Command(); // Too many arguments!
-                        }
-                        int target[2] = {};
-                        byte inLen = 0;
-                        for (byte b = 0; b < 2 && pch != NULL; b++) {
-                            target[b] = atoi(pch);
-                            pch = strtok(NULL, " ,\t");
-                            inLen++;
-                        }
-                        if (inLen != 2) {
-                            break; // Args are expected to arrive in pairs.
-                        }
-                        if (_argType == Command::ArgType::MoveSimultaneously) {
-                            if (target[0] < 0 || target[0] >= DOF) {
-                                return Command::Command(); // Invalid index
-                            }
-                            cmd.args[target[0]] = (int8_t)target[1];
-                        } else {
-                            cmd.args[cmd.len++] = (int8_t)target[0]; 
-                            cmd.args[cmd.len++] = (int8_t)target[1]; 
-                        }
-                    };
-                    if (_argType == Command::ArgType::MoveSimultaneously) {
-                        cmd.len = DOF;
-                    }
-                    cmd.cmd = _argType;
-                    return Command::Command(cmd);
+                if (_parseWithArgs(byte, currentAngles, result)) {
+                    return result;
                 }
                 break;
             }
@@ -170,5 +80,129 @@ Command::Command SerialComms::parse(const Command::Move& lastMove, const int16_t
     }
     return Command::Command();
 }
+
+// Private Helpers
+
+bool SerialComms::_parseSingle(uint8_t byte, Command::Command& result) {
+    switch (byte) {
+        case T_PAUSE:       result = Command::Command(Command::Simple::Pause); return true;
+        case T_GYRO:        result = Command::Command(Command::Simple::GyroToggle); return true;
+        case T_REST:        result = Command::Command(Command::Simple::Rest); return true;
+        // Calibration Commands
+        case T_SAVE:        result = Command::Command(Command::Simple::SaveServoCalibration); return true;
+        case T_ABORT:       result = Command::Command(Command::Simple::AbortServoCalibration); return true;
+        // Diagnostic Commands
+        case T_JOINTS:      result = Command::Command(Command::Simple::ShowJointAngles); return true;
+        case T_HELP:        result = Command::Command(Command::Simple::ShowHelp); return true;
+        // Commands with arguments
+        case T_CALIBRATE:           _toArgs(Command::ArgType::Calibrate); break;
+        case T_MOVE:                _toArgs(Command::ArgType::MoveSequentially); break;
+        case T_MEOW:                _toArgs(Command::ArgType::Meow); break;
+        case T_BEEP:                _toArgs(Command::ArgType::Beep); break;
+        case T_SIMULTANEOUS_MOVE:   _toArgs(Command::ArgType::MoveSimultaneously); break;
+        // Skill - the next byte will determine which skill
+        case T_SKILL:               _state = State::Skill; break;
+        default: { break; } // Try again.
+    }
+    return false;
+}
+
+void SerialComms::_toArgs(Command::ArgType argType) {
+    _argType = argType;
+    _state = State::Args;
+    _argStrLen = 0;
+}
+
+
+bool SerialComms::_parseSkill(uint8_t byte, const Command::Move& lastMove, Command::Command& result) {
+    _state = State::None; // Will return to None regardless of result.
+    switch (byte) {  
+        case S_FORWARD:     result = Command::Command(Command::Direction::Forward, lastMove); return true;
+        case S_LEFT:        result = Command::Command(Command::Direction::Left, lastMove); return true;
+        case S_RIGHT:       result = Command::Command(Command::Direction::Right, lastMove); return true;
+        case S_BACKWARD:    result = Command::Command(Command::Pace::Reverse, lastMove); return true;
+        case S_BALANCE:     result = Command::Command(Command::Simple::Balance); return true;
+        case S_STEP:        result = Command::Command(Command::Simple::Step); return true;
+        case S_CRAWL:       result = Command::Command(Command::Pace::Slow, lastMove); return true;
+        case S_WALK:        result = Command::Command(Command::Pace::Medium, lastMove); return true;
+        case S_TROT:        result = Command::Command(Command::Pace::Fast, lastMove); return true;
+        case S_SIT:         result = Command::Command(Command::Simple::Sit); return true;
+        case S_STRETCH:     result = Command::Command(Command::Simple::Stretch); return true;
+        case S_GREET:       result = Command::Command(Command::Simple::Greet); return true;
+        case S_PUSHUP:      result = Command::Command(Command::Simple::Pushup); return true;
+        case S_HYDRANT:     result = Command::Command(Command::Simple::Hydrant); return true;
+        case S_CHECK:       result = Command::Command(Command::Simple::Check); return true;
+        case S_DEAD:        result = Command::Command(Command::Simple::Dead); return true;
+        case S_ZERO:        result = Command::Command(Command::Simple::Zero); return true;
+        default:            return false;
+    }
+}
+
+bool SerialComms::_parseWithArgs(uint8_t byte, const int16_t* currentAngles, Command::Command& result) {
+    if (byte != '\n') {
+        if (_argStrLen < MAX_STRING_LENGTH) {
+            _argStr[_argStrLen++] = byte;
+        } else {
+            _state = State::None; // Too many bytes!
+        }
+        return false;
+    } else {
+        Command::WithArgs cmd = {};
+        cmd.len = 0;
+        if (_argType == Command::ArgType::MoveSimultaneously) {
+            for (int i = 0; i < DOF; i += 1) {
+                cmd.args[i] = currentAngles[i];
+            }
+        }
+
+        bool validArgs = _extractArgsFromString(cmd);
+
+        _state = State::None; // Reset
+        _argStrLen = 0; 
+        
+        if (validArgs) {
+            if (_argType == Command::ArgType::MoveSimultaneously) {
+                cmd.len = DOF;
+            }
+            cmd.cmd = _argType;
+            result = Command::Command(cmd);
+        } else {
+            result = Command::Command(); // Something went wrong!
+        }
+        return true;
+    }
+}
+
+bool SerialComms::_extractArgsFromString(Command::WithArgs& cmd) {
+    char *pch;
+    pch = strtok(_argStr, " ,");
+    while (pch != NULL) {
+        if (cmd.len >= COMMAND_MAX_ARGS) {
+            return false; // Too many arguments!
+        }
+        int16_t argPair[2] = {};
+        for (int i = 0; i<2; i++) {
+            argPair[i] = atoi(pch);
+            pch = strtok(NULL, " ,\t");
+            if ((i == 0) && (pch == NULL)) {
+                return true; // Args are expected to arrive in pairs. Still assume we have a valid arg set.
+            }
+        }
+        if (_argType == Command::ArgType::MoveSimultaneously) {
+            const int8_t index = argPair[0];
+            const int8_t value = argPair[1];
+            if (index < 0 || index >= DOF) {
+                return false; // Invalid index
+            }
+            cmd.args[index] = value;
+        } else {
+            cmd.args[cmd.len++] = (int8_t)argPair[0]; 
+            cmd.args[cmd.len++] = (int8_t)argPair[1]; 
+        }
+    };
+    return true;
+}
+
+
 
 } // namespace Comms
