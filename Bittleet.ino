@@ -35,7 +35,7 @@
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
 
-#include "src/battery.h"
+#include "src/Battery.h"
 #include "src/Infrared.h"
 
 

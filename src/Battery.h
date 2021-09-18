@@ -7,7 +7,7 @@
 // License - MIT
 //
 
-#ifndef _BITTLEET_BATTERY_H_
+#ifndef _BITTLEET_BATTERY_H_ 
 #define _BITTLEET_BATTERY_H_
 
 #include <stdint.h>

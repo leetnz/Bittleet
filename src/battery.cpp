@@ -7,7 +7,7 @@
 // License - MIT
 //
 
-#include "battery.h"
+#include "Battery.h"
 
 #define MAX_MV (10000)
 #define MV_PER_COUNT (10) // Actually 10.24, but close enough.
@@ -21,7 +21,7 @@
 namespace Battery {
     
 State state(int adcRead) {
-    if (adcRead <= 10) {
+    if (adcRead <= NO_BATT_MV) {
         return State::None;
     }
     if (adcRead <= LOW_BATT_COUNT) {
