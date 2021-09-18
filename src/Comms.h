@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include "Command.h"
 
+#define MAX_STRING_LENGTH (63)
+
 namespace Comms {
 
 class SerialComms {
@@ -16,10 +18,13 @@ class SerialComms {
     private:
         enum class State : uint8_t {
             None,
-            Skill
+            Skill,
+            Args,
         };
         State _state = State::None;
-        char _argStr[64]  = {'\0'};
+        Command::ArgType _argType;
+        char _argStr[MAX_STRING_LENGTH + 1]  = {'\0'}; // Note, +1 so we always have a terminating character '\0'
+        uint8_t _argStrLen = 0;
 };
 
 }

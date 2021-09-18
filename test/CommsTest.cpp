@@ -218,9 +218,9 @@ TEST_CASE("ParseSerial_WithArgsSimple", "[Comms]" )
                 Command::Command(WithArgs{setup.argType, 16, {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}})
             },
             { 
-                "Exactly 64 bytes",   
-                setup.token + "03   ,09   ,15   ,21   ,27   ,33   ,39   ,45,48,51,54,57,61, 64\n", 
-                Command::Command(WithArgs{setup.argType, 14, {3, 9, 15, 21, 27, 33, 39, 45, 48, 51, 54, 57, 61, 64}})
+                "Exactly 63 bytes",   
+                setup.token + "03   ,09   ,15   ,21   ,27   ,33   ,39   ,45,48,51,54,57,61,63\n", 
+                Command::Command(WithArgs{setup.argType, 14, {3, 9, 15, 21, 27, 33, 39, 45, 48, 51, 54, 57, 61, 63}})
             },
             { 
                 "More than 16 arguments", 
@@ -228,8 +228,8 @@ TEST_CASE("ParseSerial_WithArgsSimple", "[Comms]" )
                 Command::Command()
             },
             { 
-                "More than 64 bytes", 
-                setup.token + "03   ,09   ,15   ,21   ,27   ,33,36,39,42,45,48,51,54,57,61,  65\n",  
+                "More than 63 bytes", 
+                setup.token + "03   ,09   ,15   ,21   ,27   ,33,36,39,42,45,48,51,54,57, 61, 64\n",  
                 Command::Command()
             },
         };
@@ -243,6 +243,79 @@ TEST_CASE("ParseSerial_WithArgsSimple", "[Comms]" )
                 Serial = Stream(tc.bytes);
                 REQUIRE(tc.expected == comms.parse(move, currentPos));
             }
+            SECTION(setup.name + " incremental " + tc.name) {
+                SerialComms comms{};
+                for (int i = 0; i < (int)tc.bytes.length() - 1; i++) {
+                    Serial = Stream(tc.bytes.substr(i, 1));
+                    REQUIRE(Command::Command() == comms.parse(move, currentPos));
+                }
+                Serial = Stream(tc.bytes.substr(tc.bytes.length() - 1));
+                REQUIRE(tc.expected == comms.parse(move, currentPos));
+            }
+        }
+    }
+}
+
+TEST_CASE("ParseSerial_WithArgs_MoveSimultaneously", "[Comms]" ) 
+{
+    struct TestCase {
+        std::string name;
+        std::string bytes;
+        Command::Command expected;
+    };
+
+    const int16_t currentPos[DOF] = {-1,-2,-3,-4,-5,-6,-7,-8,-9,-10,-11,-12,-13,-14,-15,-16};
+    const ArgType type = ArgType::MoveSimultaneously;
+    const std::vector<TestCase> testCases = {
+        { "{}",                 "M\n",                 Command::Command(WithArgs{type, DOF, {-1,-2,-3,-4,-5,-6,-7,-8,-9,-10,-11,-12,-13,-14,-15,-16}})},
+        { "{1,5}",              "M1 5\n",              Command::Command(WithArgs{type, DOF, {-1, 5,-3,-4,-5,-6,-7,-8,-9,-10,-11,-12,-13,-14,-15,-16}})},
+        { "{1,-5}",             "M1 -5\n",             Command::Command(WithArgs{type, DOF, {-1,-5,-3,-4,-5,-6,-7,-8,-9,-10,-11,-12,-13,-14,-15,-16}})},
+        { "{0,1,1,2,2,3,3,4}",  "M0,1,1,2,2,3,3,4\n",  Command::Command(WithArgs{type, DOF, { 1, 2, 3, 4,-5,-6,-7,-8,-9,-10,-11,-12,-13,-14,-15,-16}})},
+        { "Expected in pairs",  "M0,1,1,2,2,3,3\n",    Command::Command(WithArgs{type, DOF, { 1, 2, 3,-4,-5,-6,-7,-8,-9,-10,-11,-12,-13,-14,-15,-16}})},
+        { 
+            "Exactly 16 Arguments",  
+            "M4, 5, 5, 6, 6, 7, 7, 8, 0, 1, 1, 2, 2, 3, 3, 4\n",  
+            Command::Command(WithArgs{type, DOF, {1,2,3,4,5,6,7,8,-9,-10,-11,-12,-13,-14,-15,-16}})
+        },
+        { 
+            "Exactly 63 bytes",   
+            "M 0    , 1   , 1   , 2   ,2    , 3   ,3    , 4,4 ,5 ,5 , 6,6 ,7 \n", 
+            Command::Command(WithArgs{type, DOF, { 1, 2, 3, 4, 5, 6, 7,-8,-9,-10,-11,-12,-13,-14,-15,-16}})
+        },
+        { 
+            "Negative Index", 
+            "M -1, 0\n",  
+            Command::Command()
+        },
+        { 
+            "Invalid Index", 
+            "M 17, 0\n",  
+            Command::Command()
+        },
+        { 
+            "More than 63 bytes", 
+            "M 0    , 1   , 1   , 2   ,2    , 3   ,3    , 4,4 ,5 ,5 , 6,6,7,7,8\n",  
+            Command::Command()
+        },
+    };
+
+    const Move move = Move{Pace::Medium, Direction::Forward};
+    
+
+    for (auto& tc : testCases) {
+        SECTION(tc.name) {
+            SerialComms comms{};
+            Serial = Stream(tc.bytes);
+            REQUIRE(tc.expected == comms.parse(move, currentPos));
+        }
+        SECTION("incremental " + tc.name) {
+            SerialComms comms{};
+            for (int i = 0; i < (int)tc.bytes.length() - 1; i++) {
+                Serial = Stream(tc.bytes.substr(i, 1));
+                REQUIRE(Command::Command() == comms.parse(move, currentPos));
+            }
+            Serial = Stream(tc.bytes.substr(tc.bytes.length() - 1));
+            REQUIRE(tc.expected == comms.parse(move, currentPos));
         }
     }
 }

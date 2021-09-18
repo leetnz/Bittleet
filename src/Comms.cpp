@@ -63,61 +63,11 @@ Command::Command SerialComms::parse(const Command::Move& lastMove, const int16_t
                     case T_JOINTS:      return Command::Command(Command::Simple::ShowJointAngles);
                     case T_HELP:        return Command::Command(Command::Simple::ShowHelp);
                     // Commands with arguments
-                    case T_CALIBRATE: //calibration
-                    case T_MOVE: //move multiple indexed joints to angles once at a time
-                    case T_SIMULTANEOUS_MOVE: //move multiple indexed joints to angles simultaneously
-                    case T_MEOW: //meow (repeat, increament)
-                    case T_BEEP: //beep(tone, duration): tone 0 is pause, duration range is 0~255
-                    {
-                        Command::WithArgs cmd = {};
-                        cmd.len = 0;
-                        switch (token) {
-                        case (T_CALIBRATE):         cmd.cmd = Command::ArgType::Calibrate; break;
-                        case (T_MOVE):              cmd.cmd = Command::ArgType::MoveSequentially; break;
-                        case (T_SIMULTANEOUS_MOVE): cmd.cmd = Command::ArgType::MoveSimultaneously; break;
-                        case (T_MEOW):              cmd.cmd = Command::ArgType::Meow; break;
-                        case (T_BEEP):              cmd.cmd = Command::ArgType::Beep; break;
-                        }
-
-                        if (token == T_SIMULTANEOUS_MOVE) {
-                            for (int i = 0; i < DOF; i += 1) {
-                                cmd.args[i] = currentAngles[i];
-                            }
-                        }
-                        String inBuffer = Serial.readStringUntil('\n');
-                        if (inBuffer.length() > 64) {
-                            return Command::Command(); // Too many bytes!
-                        }
-                        char temp[64]  = {'\0'};
-                        strcpy(temp, inBuffer.c_str());
-                        char *pch;
-                        pch = strtok(temp, " ,");
-                        while (pch != NULL) {
-                            if (cmd.len >= COMMAND_MAX_ARGS) {
-                                return Command::Command(); // Too many arguments!
-                            }
-                            int target[2] = {};
-                            byte inLen = 0;
-                            for (byte b = 0; b < 2 && pch != NULL; b++) {
-                                target[b] = atoi(pch);
-                                pch = strtok(NULL, " ,\t");
-                                inLen++;
-                            }
-                            if (inLen != 2) {
-                                break; // Args are expected to arrive in pairs.
-                            }
-                            if (token == T_SIMULTANEOUS_MOVE) {
-                                cmd.args[target[0]] = (int8_t)target[1];
-                            } else {
-                                cmd.args[cmd.len++] = (int8_t)target[0]; 
-                                cmd.args[cmd.len++] = (int8_t)target[1]; 
-                            }
-                        };
-                        if (token == T_SIMULTANEOUS_MOVE) {
-                            cmd.len = DOF;
-                        }
-                        return Command::Command(cmd);
-                    }
+                    case T_CALIBRATE:   _argType = Command::ArgType::Calibrate; _argStrLen = 0; _state = State::Args; break;
+                    case T_MOVE:        _argType = Command::ArgType::MoveSequentially; _argStrLen = 0; _state = State::Args; break;
+                    case T_MEOW:        _argType = Command::ArgType::Meow; _argStrLen = 0; _state = State::Args; break;
+                    case T_BEEP:        _argType = Command::ArgType::Beep; _argStrLen = 0; _state = State::Args; break;
+                    case T_SIMULTANEOUS_MOVE: _argType = Command::ArgType::MoveSimultaneously; _argStrLen = 0; _state = State::Args; break;
                     case T_SKILL: {
                         _state = State::Skill;
                         break;
@@ -150,6 +100,60 @@ Command::Command SerialComms::parse(const Command::Move& lastMove, const int16_t
                     case S_ZERO:        return Command::Command(Command::Simple::Zero);
                     default:            break;
                 };
+                break;
+            }
+            case (State::Args): {
+                uint8_t nextByte = Serial.read();
+                if (nextByte != '\n') {
+                    if (_argStrLen < MAX_STRING_LENGTH) {
+                        _argStr[_argStrLen++] = nextByte;
+                    } else {
+                        _state = State::None; // Too many bytes!
+                    }
+                } else {
+                    _state = State::None;
+
+                    Command::WithArgs cmd = {};
+                    cmd.len = 0;
+
+                    if (_argType == Command::ArgType::MoveSimultaneously) {
+                        for (int i = 0; i < DOF; i += 1) {
+                            cmd.args[i] = currentAngles[i];
+                        }
+                    }
+
+                    char *pch;
+                    pch = strtok(_argStr, " ,");
+                    while (pch != NULL) {
+                        if (cmd.len >= COMMAND_MAX_ARGS) {
+                            return Command::Command(); // Too many arguments!
+                        }
+                        int target[2] = {};
+                        byte inLen = 0;
+                        for (byte b = 0; b < 2 && pch != NULL; b++) {
+                            target[b] = atoi(pch);
+                            pch = strtok(NULL, " ,\t");
+                            inLen++;
+                        }
+                        if (inLen != 2) {
+                            break; // Args are expected to arrive in pairs.
+                        }
+                        if (_argType == Command::ArgType::MoveSimultaneously) {
+                            if (target[0] < 0 || target[0] >= DOF) {
+                                return Command::Command(); // Invalid index
+                            }
+                            cmd.args[target[0]] = (int8_t)target[1];
+                        } else {
+                            cmd.args[cmd.len++] = (int8_t)target[0]; 
+                            cmd.args[cmd.len++] = (int8_t)target[1]; 
+                        }
+                    };
+                    if (_argType == Command::ArgType::MoveSimultaneously) {
+                        cmd.len = DOF;
+                    }
+                    cmd.cmd = _argType;
+                    return Command::Command(cmd);
+                }
                 break;
             }
         }
