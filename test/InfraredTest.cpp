@@ -76,7 +76,7 @@ TEST_CASE("ParseSignal_Simple", "[Infrared]" )
     }
 }
 
-TEST_CASE("ParseSignal_Move_Forward", "[Infrared]" ) 
+TEST_CASE("ParseSignal_Move", "[Infrared]" ) 
 { 
     using Move = Command::Move;
     using Pace = Command::Pace;
@@ -87,119 +87,60 @@ TEST_CASE("ParseSignal_Move_Forward", "[Infrared]" )
         Move move;
     };
 
-    const uint8_t signal = IR_CODE_01;
-    Command::Command expected = Command::Command(Move{Pace::Medium, Direction::Forward});
-
     const std::vector<TestCase> testCases = {
-        { "MF", Move{Pace::Medium, Direction::Forward} },
         { "FF", Move{Pace::Fast, Direction::Forward} },
-        { "SF", Move{Pace::Slow, Direction::Forward} },
-        { "RF", Move{Pace::Reverse, Direction::Forward} },
-        { "ML", Move{Pace::Medium, Direction::Left} },
-        { "MR", Move{Pace::Medium, Direction::Right} },
         { "RL", Move{Pace::Reverse, Direction::Left} },
         { "SR", Move{Pace::Slow, Direction::Right} },
     };
 
-    for (auto& tc : testCases) {
-        SECTION(tc.name) {
-            REQUIRE(expected == parseSignal(signal, tc.move));
-        }
-    }
-}
-
-TEST_CASE("ParseSignal_Move_LeftRight", "[Infrared]" ) 
-{ 
-    using Move = Command::Move;
-    using Pace = Command::Pace;
-    using Direction = Command::Direction;
-
-    struct Setup {
-        std::string name;
-        uint8_t signal;
-        Direction dir;
-    };
-
-    const std::vector<Setup> setups = {
-        { "Left",    IR_CODE_10, Direction::Left  },
-        { "Right",   IR_CODE_12, Direction::Right },
-    };
-
-    for (auto& setup : setups) {
-        struct TestCase {
+    // Direction
+    {
+        struct Setup {
             std::string name;
-            Move move;
-            Command::Command expected;
+            uint8_t signal;
+            Direction dir;
         };
 
-        const uint8_t signal = setup.signal;
-
-        const std::vector<TestCase> testCases = {
-            { setup.name + " MF", Move{Pace::Medium, Direction::Forward},     Command::Command(Move{Pace::Medium,  setup.dir}) },
-            { setup.name + " FF", Move{Pace::Fast, Direction::Forward},       Command::Command(Move{Pace::Fast,    setup.dir}) },
-            { setup.name + " SF", Move{Pace::Slow, Direction::Forward},       Command::Command(Move{Pace::Slow,    setup.dir}) },
-            { setup.name + " RF", Move{Pace::Reverse, Direction::Forward},    Command::Command(Move{Pace::Reverse, setup.dir}) },
-            { setup.name + " ML", Move{Pace::Medium, Direction::Left},        Command::Command(Move{Pace::Medium,  setup.dir}) },
-            { setup.name + " MR", Move{Pace::Medium, Direction::Right},       Command::Command(Move{Pace::Medium,  setup.dir}) },
-            { setup.name + " RL", Move{Pace::Reverse, Direction::Left},       Command::Command(Move{Pace::Reverse, setup.dir}) },
-            { setup.name + " SR", Move{Pace::Slow, Direction::Right},         Command::Command(Move{Pace::Slow,    setup.dir}) },
+        const std::vector<Setup> setups = {
+            { "Forward", IR_CODE_01, Direction::Forward },
+            { "Left",    IR_CODE_10, Direction::Left    },
+            { "Right",   IR_CODE_12, Direction::Right   },
         };
 
-        for (auto& tc : testCases) {
-            SECTION(tc.name) {
-                REQUIRE(tc.expected == parseSignal(signal, tc.move));
+        for (auto& setup : setups) {
+            for (auto& tc : testCases) {
+                SECTION("Dir: " + setup.name + tc.name) {
+                    const Command::Command expected = Command::Command(setup.dir, tc.move);
+
+                    REQUIRE(expected == parseSignal(setup.signal, tc.move));
+                }
             }
         }
     }
-}
 
-
-TEST_CASE("ParseSignal_Move_Pace", "[Infrared]" ) 
-{ 
-    using Move = Command::Move;
-    using Pace = Command::Pace;
-    using Direction = Command::Direction;
-
-    struct Setup {
-        std::string name;
-        uint8_t signal;
-        Pace pace;
-    };
-
-    const std::vector<Setup> setups = {
-        { "Reverse",    IR_CODE_21, Pace::Reverse },
-        { "Slow",       IR_CODE_31, Pace::Slow },
-        { "Medium",     IR_CODE_32, Pace::Medium },
-        { "Fast",       IR_CODE_40, Pace::Fast },
-    };
-
-    for (auto& setup : setups) {
-        struct TestCase {
+    // Pace
+    {
+        struct Setup {
             std::string name;
-            Move move;
-            Command::Command expected;
+            uint8_t signal;
+            Pace pace;
         };
 
-        const uint8_t signal = setup.signal;
-
-        const std::vector<TestCase> testCases = {
-            { setup.name + "MF", Move{Pace::Medium, Direction::Forward},     Command::Command(Move{setup.pace,  Direction::Forward}) },
-            { setup.name + "FF", Move{Pace::Fast, Direction::Forward},       Command::Command(Move{setup.pace,  Direction::Forward}) },
-            { setup.name + "SF", Move{Pace::Slow, Direction::Forward},       Command::Command(Move{setup.pace,  Direction::Forward}) },
-            { setup.name + "RF", Move{Pace::Reverse, Direction::Forward},    Command::Command(Move{setup.pace,  Direction::Forward}) },
-            { setup.name + "ML", Move{Pace::Medium, Direction::Left},        Command::Command(Move{setup.pace,  Direction::Left}) },
-            { setup.name + "MR", Move{Pace::Medium, Direction::Right},       Command::Command(Move{setup.pace,  Direction::Right}) },
-            { setup.name + "RL", Move{Pace::Reverse, Direction::Left},       Command::Command(Move{setup.pace,  Direction::Left}) },
-            { setup.name + "SR", Move{Pace::Slow, Direction::Right},         Command::Command(Move{setup.pace,  Direction::Right}) },
+        const std::vector<Setup> setups = {
+            { "Reverse",    IR_CODE_21, Pace::Reverse },
+            { "Slow",       IR_CODE_31, Pace::Slow },
+            { "Medium",     IR_CODE_32, Pace::Medium },
+            { "Fast",       IR_CODE_40, Pace::Fast },
         };
 
-        for (auto& tc : testCases) {
-            SECTION(tc.name) {
-                REQUIRE(tc.expected == parseSignal(signal, tc.move));
+        for (auto& setup : setups) {
+            for (auto& tc : testCases) {
+                SECTION("Pace: " + setup.name + tc.name) {
+                    const Command::Command expected = Command::Command(setup.pace, tc.move);
+
+                    REQUIRE(expected == parseSignal(setup.signal, tc.move));  
+                }
             }
         }
-    }   
+    } 
 }
-
-
-

@@ -10,10 +10,13 @@
 
 using namespace Comms;
 
-TEST_CASE("ParseSerial_Simple", "[Infrared]" ) 
-{ 
-    using Simple = Command::Simple;
+using Simple = Command::Simple;
+using Move = Command::Move;
+using Pace = Command::Pace;
+using Direction = Command::Direction;
 
+TEST_CASE("ParseSerial_Simple", "[Comms]" ) 
+{ 
     struct TestCase {
         std::string name;
         std::string bytes;
@@ -45,10 +48,8 @@ TEST_CASE("ParseSerial_Simple", "[Infrared]" )
 
 
 
-TEST_CASE("ParseSerial_Simple_Skills", "[Infrared]" ) 
+TEST_CASE("ParseSerial_Simple_Skills", "[Comms]" ) 
 { 
-    using Simple = Command::Simple;
-
     struct TestCase {
         std::string name;
         std::string bytes;
@@ -86,6 +87,73 @@ TEST_CASE("ParseSerial_Simple_Skills", "[Infrared]" )
     }
 }
 
+TEST_CASE("ParseSerial_Move", "[Comms]" ) 
+{ 
+    struct TestCase {
+        std::string name;
+        Move move;
+    };
 
+    const std::vector<TestCase> testCases = {
+        { "FF", Move{Pace::Fast, Direction::Forward} },
+        { "RL", Move{Pace::Reverse, Direction::Left} },
+        { "SR", Move{Pace::Slow, Direction::Right} },
+    };
+
+    int16_t currentPos[DOF] = {};
+
+    // Direction
+    {
+        struct Setup {
+            std::string name;
+            std::string bytes;
+            Direction dir;
+        }; 
+
+        const std::vector<Setup> setups = {
+            { "Forward", "kF", Direction::Forward },
+            { "Left",    "kL", Direction::Left    },
+            { "Right",   "kR", Direction::Right   },
+        };
+
+        for (auto& setup : setups) {
+            for (auto& tc : testCases) {
+                SECTION("Dir: " + setup.name + tc.name) {
+                    const Command::Command expected = Command::Command(setup.dir, tc.move);
+
+                    Stream mock = Stream(setup.bytes);
+                    REQUIRE(expected == parseSerial(mock, tc.move, currentPos));
+                }
+            }
+        }
+    }
+
+    // Pace
+    {
+        struct Setup {
+            std::string name;
+            std::string bytes;
+            Pace pace;
+        };      
+
+        const std::vector<Setup> setups = {
+            { "Reverse",    "kB", Pace::Reverse },
+            { "Slow",       "kc", Pace::Slow },
+            { "Medium",     "kw", Pace::Medium },
+            { "Fast",       "kt", Pace::Fast },
+        };
+
+        for (auto& setup : setups) {
+            for (auto& tc : testCases) {
+                SECTION("Pace: " + setup.name + tc.name) {
+                    const Command::Command expected = Command::Command(setup.pace, tc.move);
+
+                    Stream mock = Stream(setup.bytes);
+                    REQUIRE(expected == parseSerial(mock, tc.move, currentPos)); 
+                }
+            }
+        }
+    } 
+}
 
 

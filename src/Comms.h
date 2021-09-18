@@ -6,7 +6,7 @@
 
 namespace Comms {
 
-Command::Command parseSerial(Stream& serial, const Command::Move& move, const int16_t* currentAngles);
+Command::Command parseSerial(Stream& serial, const Command::Move& lastMove, const int16_t* currentAngles);
 
 }
 

@@ -5,11 +5,7 @@ G++ = g++
 TEST_SRC = $(wildcard test/*.cpp)
 TEST_OBJ = $(patsubst test/%.cpp,obj/test/%.o,$(TEST_SRC))
 
-# Eventually do this:
-# APP_SRC = $(wildcard src/*.cpp)
-# APP_OBJ = $(patsubst src/%.cpp,obj/src/%.o,$(APP_SRC))
-
-APP_SRC = src/Infrared.cpp src/Command.cpp src/Comms.cpp
+APP_SRC = $(filter-out src/OpenCat.cpp, $(wildcard src/*.cpp)) # OpenCat not ready yet...
 APP_OBJ = $(patsubst src/%.cpp,obj/src/%.o,$(APP_SRC))
 
 .PHONY: all

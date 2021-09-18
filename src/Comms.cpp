@@ -45,7 +45,7 @@
 
 namespace Comms {
 
-Command::Command parseSerial(Stream& serial, const Command::Move& move,const int16_t* currentAngles ) {
+Command::Command parseSerial(Stream& serial, const Command::Move& lastMove, const int16_t* currentAngles ) {
     // bool isSkill = false;
     while (serial.available() > 0) {
         uint8_t token = serial.read();
@@ -64,8 +64,8 @@ Command::Command parseSerial(Stream& serial, const Command::Move& move,const int
             case T_HELP:        return Command::Command(Command::Simple::ShowHelp);
             // Commands with arguments
             case T_CALIBRATE: //calibration
-            case T_MOVE: //move multiple indexed joints to angles once at a time (ASCII format entered in the serial monitor)
-            case T_SIMULTANEOUS_MOVE: //move multiple indexed joints to angles simultaneously (ASCII format entered in the serial monitor)
+            case T_MOVE: //move multiple indexed joints to angles once at a time
+            case T_SIMULTANEOUS_MOVE: //move multiple indexed joints to angles simultaneously
             case T_MEOW: //meow (repeat, increament)
             case T_BEEP: //beep(tone, duration): tone 0 is pause, duration range is 0~255
             {
@@ -115,15 +115,15 @@ Command::Command parseSerial(Stream& serial, const Command::Move& move,const int
             case T_SKILL: {
                 uint8_t skill = serial.read();
                 switch (skill) {  
-                    // case S_FORWARD:
-                    // case S_LEFT:
-                    // case S_RIGHT:
-                    // case S_BACKWARD:
+                    case S_FORWARD:     return Command::Command(Command::Direction::Forward, lastMove);
+                    case S_LEFT:        return Command::Command(Command::Direction::Left, lastMove);
+                    case S_RIGHT:       return Command::Command(Command::Direction::Right, lastMove);
+                    case S_BACKWARD:    return Command::Command(Command::Pace::Reverse, lastMove);
                     case S_BALANCE:     return Command::Command(Command::Simple::Balance);
                     case S_STEP:        return Command::Command(Command::Simple::Step);
-                    // case S_CRAWL:       
-                    // case S_WALK:
-                    // case S_TROT:
+                    case S_CRAWL:       return Command::Command(Command::Pace::Slow, lastMove);
+                    case S_WALK:        return Command::Command(Command::Pace::Medium, lastMove);
+                    case S_TROT:        return Command::Command(Command::Pace::Fast, lastMove);
                     case S_SIT:         return Command::Command(Command::Simple::Sit);
                     case S_STRETCH:     return Command::Command(Command::Simple::Stretch);
                     case S_GREET:       return Command::Command(Command::Simple::Greet);
