@@ -10,7 +10,6 @@
 #define T_HELP      'h'
 #define T_INDEXED   'i'
 #define T_JOINTS    'j'
-#define T_SKILL     'k'
 #define T_LISTED    'l'
 #define T_MOVE      'm'
 #define T_SIMULTANEOUS_MOVE 'M'
@@ -18,35 +17,52 @@
 #define T_PAUSE     'p'
 #define T_RAMP      'r'
 #define T_SAVE      's'
+#define T_SKILL     'k'
+#define T_SIT       't'
+#define T_STRETCH   'T'
 #define T_MEOW      'u'
 #define T_UNDEFINED 'w'
 #define T_XLEG      'x'
 
+#define S_FORWARD     'F'       //forward
+#define S_LEFT        'L'       //left
+#define S_RIGHT       'R'       //right
+#define S_BACKWARD    'B'       //backward
+#define S_BALANCE     'b'       //neutral stand up posture
+#define S_STEP        'v'       //stepping
+#define S_CRAWL       'c'       //crawl
+#define S_WALK        'w'       //walk
+#define S_TROT        't'       //trot
+#define S_SIT         's'       //sit
+#define S_STRETCH     'T'       //stretch
+#define S_GREET       'h'       //greeting
+#define S_PUSHUP      'p'       //push up
+#define S_HYDRANT     'e'       //standng with three legs
+#define S_CHECK       'k'       //check around
+#define S_DEAD        'd'       //play dead
+#define S_ZERO        'z'       //zero position
+
+
 namespace Comms {
 
 Command::Command parseSerial(Stream& serial, const Command::Move& move,const int16_t* currentAngles ) {
+    // bool isSkill = false;
     while (serial.available() > 0) {
         uint8_t token = serial.read();
         // this block handles argumentless tokens
         switch (token) {
-            case T_REST: {
-                return Command::Command(Command::Simple::Rest);
-            }
-            case T_GYRO: {
-                return Command::Command(Command::Simple::GyroToggle);
-            }
-            case T_PAUSE: {
-                return Command::Command(Command::Simple::Pause);
-            }
-            case T_SAVE: {
-                return Command::Command(Command::Simple::SaveServoCalibration);
-            }
-            case T_ABORT: {
-                return Command::Command(Command::Simple::AbortServoCalibration);
-            }
-            case T_JOINTS: { //show the list of current joint anles
-                return Command::Command(Command::Simple::ShowJointAngles);
-            }
+            case T_PAUSE:       return Command::Command(Command::Simple::Pause);
+            case T_GYRO:        return Command::Command(Command::Simple::GyroToggle);
+            case T_REST:        return Command::Command(Command::Simple::Rest);
+            case T_SIT:         return Command::Command(Command::Simple::Sit);
+            case T_STRETCH:     return Command::Command(Command::Simple::Stretch);
+            // Calibration Commands
+            case T_SAVE:        return Command::Command(Command::Simple::SaveServoCalibration);
+            case T_ABORT:       return Command::Command(Command::Simple::AbortServoCalibration);
+            // Diagnostic Commands
+            case T_JOINTS:      return Command::Command(Command::Simple::ShowJointAngles);
+            case T_HELP:        return Command::Command(Command::Simple::ShowHelp);
+            // Commands with arguments
             case T_CALIBRATE: //calibration
             case T_MOVE: //move multiple indexed joints to angles once at a time (ASCII format entered in the serial monitor)
             case T_SIMULTANEOUS_MOVE: //move multiple indexed joints to angles simultaneously (ASCII format entered in the serial monitor)
@@ -95,6 +111,30 @@ Command::Command parseSerial(Stream& serial, const Command::Move& move,const int
                     }
                 } while (pch != NULL);
                 return Command::Command(cmd);
+            }
+            case T_SKILL: {
+                uint8_t skill = serial.read();
+                switch (skill) {  
+                    // case S_FORWARD:
+                    // case S_LEFT:
+                    // case S_RIGHT:
+                    // case S_BACKWARD:
+                    case S_BALANCE:     return Command::Command(Command::Simple::Balance);
+                    case S_STEP:        return Command::Command(Command::Simple::Step);
+                    // case S_CRAWL:       
+                    // case S_WALK:
+                    // case S_TROT:
+                    case S_SIT:         return Command::Command(Command::Simple::Sit);
+                    case S_STRETCH:     return Command::Command(Command::Simple::Stretch);
+                    case S_GREET:       return Command::Command(Command::Simple::Greet);
+                    case S_PUSHUP:      return Command::Command(Command::Simple::Pushup);
+                    case S_HYDRANT:     return Command::Command(Command::Simple::Hydrant);
+                    case S_CHECK:       return Command::Command(Command::Simple::Check);
+                    case S_DEAD:        return Command::Command(Command::Simple::Dead);
+                    case S_ZERO:        return Command::Command(Command::Simple::Zero);
+                    default:            break;
+                }
+                break;
             }
 
 

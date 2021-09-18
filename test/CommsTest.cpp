@@ -10,8 +10,6 @@
 
 using namespace Comms;
 
-
-
 TEST_CASE("ParseSerial_Simple", "[Infrared]" ) 
 { 
     using Simple = Command::Simple;
@@ -23,26 +21,58 @@ TEST_CASE("ParseSerial_Simple", "[Infrared]" )
     };
 
     const std::vector<TestCase> testCases = {
-        { "Rest",           "d", Command::Command(Simple::Rest)},
-        // { "Gyro Toggle",    IR_CODE_02, Command::Command(Simple::GyroToggle)},
+        { "Rest",               "d", Command::Command(Simple::Rest)},
+        { "Gyro",               "g", Command::Command(Simple::GyroToggle)},
+        { "Pause",              "p", Command::Command(Simple::Pause)},
 
-        // { "Balance",        IR_CODE_11, Command::Command(Simple::Balance)},
+        { "Abort Calibration",  "a", Command::Command(Simple::AbortServoCalibration)},
+        { "Save Calibration",   "s", Command::Command(Simple::SaveServoCalibration)},
 
-        // { "Pause",          IR_CODE_20, Command::Command(Simple::Pause)},
-        // { "Calibrate",      IR_CODE_22, Command::Command(WithArgs{ArgType::Calibrate, 0, {}})},
+        { "Show Joint Angles",  "j", Command::Command(Command::Simple::ShowJointAngles)},
+        { "Show Help",          "h", Command::Command(Command::Simple::ShowHelp)},
+    };
 
-        // { "Step",           IR_CODE_30, Command::Command(Simple::Step)},
+    Command::Move move = Command::Move{Command::Pace::Medium, Command::Direction::Forward};
+    int16_t currentPos[DOF] = {};
 
-        // { "Sit",            IR_CODE_41, Command::Command(Simple::Sit)},
-        // { "Stretch",        IR_CODE_42, Command::Command(Simple::Stretch)},
+    for (auto& tc : testCases) {
+        SECTION(tc.name) {
+            Stream mock = Stream(tc.bytes);
+            REQUIRE(tc.expected == parseSerial(mock, move, currentPos));
+        }
+    }
+}
 
-        // { "Greet",          IR_CODE_50, Command::Command(Simple::Greet)},
-        // { "Pushup",         IR_CODE_51, Command::Command(Simple::Pushup)},
-        // { "Hydrant",        IR_CODE_52, Command::Command(Simple::Hydrant)},
 
-        // { "Check",          IR_CODE_60, Command::Command(Simple::Check)},
-        // { "Dead",           IR_CODE_61, Command::Command(Simple::Dead)},
-        // { "Zero",           IR_CODE_62, Command::Command(Simple::Zero)},
+
+TEST_CASE("ParseSerial_Simple_Skills", "[Infrared]" ) 
+{ 
+    using Simple = Command::Simple;
+
+    struct TestCase {
+        std::string name;
+        std::string bytes;
+        Command::Command expected;
+    };
+
+    const std::vector<TestCase> testCases = {
+        // { "FORWARD",    "kF", Command::Command(Simple::)},       
+        // { "LEFT",       "kL", Command::Command(Simple::)},       
+        // { "RIGHT",      "kR", Command::Command(Simple::)},       
+        // { "BACKWARD",   "kB", Command::Command(Simple::)},       
+        { "BALANCE",    "kb", Command::Command(Simple::Balance)},      
+        { "STEP",       "kv", Command::Command(Simple::Step)},       
+        // { "CRAWL",      "kc", Command::Command(Simple::)},       
+        // { "WALK",       "kw", Command::Command(Simple::)},       
+        // { "TROT",       "kt", Command::Command(Simple::)},       
+        { "SIT",        "ks", Command::Command(Simple::Sit)},       
+        { "STRETCH",    "kT", Command::Command(Simple::Stretch)},       
+        { "GREET",      "kh", Command::Command(Simple::Greet)},       
+        { "PUSHUP",     "kp", Command::Command(Simple::Pushup)},
+        { "HYDRANT",    "ke", Command::Command(Simple::Hydrant)},
+        { "CHECK",      "kk", Command::Command(Simple::Check)},
+        { "DEAD",       "kd", Command::Command(Simple::Dead)},
+        { "ZERO",       "kz", Command::Command(Simple::Zero)},
     };
 
     Command::Move move = Command::Move{Command::Pace::Medium, Command::Direction::Forward};

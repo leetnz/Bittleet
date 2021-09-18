@@ -51,10 +51,11 @@ enum class Simple : uint8_t {
     Zero,
     Lifted,
     Dropped,
-    Recover, // "rc"
+    Recover,
     SaveServoCalibration,
     AbortServoCalibration,
     ShowJointAngles,
+    ShowHelp,
     TOTAL
 };
 
@@ -106,6 +107,7 @@ class Command {
         explicit Command(const Simple& cmd) : _type(Type::Simple), _simple(cmd) {};
         explicit Command(const Move& cmd) : _type(Type::Move), _move(cmd) {};
         explicit Command(const WithArgs& cmd) : _type(Type::WithArgs), _withArgs(cmd) {};
+        // Command(const Move& cmd, const Move& lastMove);
 
         bool operator!=(const Simple& other) const;
         bool operator==(const Simple& other) const;

@@ -1,0 +1,20 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "make test",
+            "group": "test",
+            "windows": {
+                "command": "wsl -d Ubuntu make test", // Assumes we have WSL with Ubuntu enabled
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+        }
+    ]
+}
