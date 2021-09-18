@@ -1,4 +1,5 @@
 # Bittleet
+[![Bittleet CI](https://github.com/leetnz/Bittleet/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/leetnz/Bittleet/actions/workflows/c-cpp.yml)
 
 A fork of [Petoi OpenCat](https://github.com/PetoiCamp/OpenCat) but only focusses on Bittle.
 
