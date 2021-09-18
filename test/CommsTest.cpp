@@ -1,6 +1,7 @@
 #include "catch.hpp"
 
 #include <vector>
+#include <sstream>
 
 #include "Arduino.h"
 
@@ -40,8 +41,9 @@ TEST_CASE("ParseSerial_Simple", "[Comms]" )
 
     for (auto& tc : testCases) {
         SECTION(tc.name) {
-            Stream mock = Stream(tc.bytes);
-            REQUIRE(tc.expected == parseSerial(mock, move, currentPos));
+            SerialComms comms{};
+            Serial = Stream(tc.bytes);
+            REQUIRE(tc.expected == comms.parse(move, currentPos));
         }
     }
 }
@@ -56,16 +58,9 @@ TEST_CASE("ParseSerial_Simple_Skills", "[Comms]" )
         Command::Command expected;
     };
 
-    const std::vector<TestCase> testCases = {
-        // { "FORWARD",    "kF", Command::Command(Simple::)},       
-        // { "LEFT",       "kL", Command::Command(Simple::)},       
-        // { "RIGHT",      "kR", Command::Command(Simple::)},       
-        // { "BACKWARD",   "kB", Command::Command(Simple::)},       
+    const std::vector<TestCase> testCases = {     
         { "BALANCE",    "kb", Command::Command(Simple::Balance)},      
-        { "STEP",       "kv", Command::Command(Simple::Step)},       
-        // { "CRAWL",      "kc", Command::Command(Simple::)},       
-        // { "WALK",       "kw", Command::Command(Simple::)},       
-        // { "TROT",       "kt", Command::Command(Simple::)},       
+        { "STEP",       "kv", Command::Command(Simple::Step)},             
         { "SIT",        "ks", Command::Command(Simple::Sit)},       
         { "STRETCH",    "kT", Command::Command(Simple::Stretch)},       
         { "GREET",      "kh", Command::Command(Simple::Greet)},       
@@ -81,8 +76,17 @@ TEST_CASE("ParseSerial_Simple_Skills", "[Comms]" )
 
     for (auto& tc : testCases) {
         SECTION(tc.name) {
-            Stream mock = Stream(tc.bytes);
-            REQUIRE(tc.expected == parseSerial(mock, move, currentPos));
+            SerialComms comms{};
+            Serial = Stream(tc.bytes);
+            REQUIRE(tc.expected == comms.parse(move, currentPos));
+        }
+        SECTION("Split: " + tc.name) {
+            SerialComms comms{};
+            Serial = Stream(tc.bytes.substr(0, 1));
+            REQUIRE(Command::Command() == comms.parse(move, currentPos));
+
+            Serial = Stream(tc.bytes.substr(1));
+            REQUIRE(tc.expected == comms.parse(move, currentPos));
         }
     }
 }
@@ -121,8 +125,19 @@ TEST_CASE("ParseSerial_Move", "[Comms]" )
                 SECTION("Dir: " + setup.name + tc.name) {
                     const Command::Command expected = Command::Command(setup.dir, tc.move);
 
-                    Stream mock = Stream(setup.bytes);
-                    REQUIRE(expected == parseSerial(mock, tc.move, currentPos));
+                    SerialComms comms{};
+                    Serial = Stream(setup.bytes);
+                    REQUIRE(expected == comms.parse(tc.move, currentPos));
+                }
+                SECTION("Dir Split: " + setup.name + tc.name) {
+                    const Command::Command expected = Command::Command(setup.dir, tc.move);
+
+                    SerialComms comms{};
+                    Serial = Stream(setup.bytes.substr(0, 1));
+                    REQUIRE(Command::Command() == comms.parse(tc.move, currentPos));
+
+                    Serial = Stream(setup.bytes.substr(1));
+                    REQUIRE(expected == comms.parse(tc.move, currentPos));
                 }
             }
         }
@@ -148,8 +163,19 @@ TEST_CASE("ParseSerial_Move", "[Comms]" )
                 SECTION("Pace: " + setup.name + tc.name) {
                     const Command::Command expected = Command::Command(setup.pace, tc.move);
 
-                    Stream mock = Stream(setup.bytes);
-                    REQUIRE(expected == parseSerial(mock, tc.move, currentPos)); 
+                    SerialComms comms{};
+                    Serial = Stream(setup.bytes);
+                    REQUIRE(expected == comms.parse(tc.move, currentPos)); 
+                }
+                SECTION("Pace Split: " + setup.name + tc.name) {
+                    const Command::Command expected = Command::Command(setup.pace, tc.move);
+
+                    SerialComms comms{};
+                    Serial = Stream(setup.bytes.substr(0, 1));
+                    REQUIRE(Command::Command() == comms.parse(tc.move, currentPos));
+
+                    Serial = Stream(setup.bytes.substr(1));
+                    REQUIRE(expected == comms.parse(tc.move, currentPos));
                 }
             }
         }

@@ -323,6 +323,7 @@ void setup() {
 }
 
 void loop() {
+  static Comms::SerialComms serialComms;
   static bool enableMotion = false;
   static Command::Command newCmd;
   static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
@@ -350,7 +351,7 @@ void loop() {
         irrecv.resume(); // receive the next value
       }
       
-      Command::Command serialCmd = Comms::parseSerial(Serial, move, currentAng);
+      Command::Command serialCmd = serialComms.parse(move, currentAng);
       if (serialCmd.type() != Command::Type::None) {
         newCmd = serialCmd;
       }

@@ -45,75 +45,86 @@
 
 namespace Comms {
 
-Command::Command parseSerial(Stream& serial, const Command::Move& lastMove, const int16_t* currentAngles ) {
-    // bool isSkill = false;
-    while (serial.available() > 0) {
-        uint8_t token = serial.read();
-        // this block handles argumentless tokens
-        switch (token) {
-            case T_PAUSE:       return Command::Command(Command::Simple::Pause);
-            case T_GYRO:        return Command::Command(Command::Simple::GyroToggle);
-            case T_REST:        return Command::Command(Command::Simple::Rest);
-            case T_SIT:         return Command::Command(Command::Simple::Sit);
-            case T_STRETCH:     return Command::Command(Command::Simple::Stretch);
-            // Calibration Commands
-            case T_SAVE:        return Command::Command(Command::Simple::SaveServoCalibration);
-            case T_ABORT:       return Command::Command(Command::Simple::AbortServoCalibration);
-            // Diagnostic Commands
-            case T_JOINTS:      return Command::Command(Command::Simple::ShowJointAngles);
-            case T_HELP:        return Command::Command(Command::Simple::ShowHelp);
-            // Commands with arguments
-            case T_CALIBRATE: //calibration
-            case T_MOVE: //move multiple indexed joints to angles once at a time
-            case T_SIMULTANEOUS_MOVE: //move multiple indexed joints to angles simultaneously
-            case T_MEOW: //meow (repeat, increament)
-            case T_BEEP: //beep(tone, duration): tone 0 is pause, duration range is 0~255
-            {
-                Command::WithArgs cmd = {};
-                cmd.len = 0;
+Command::Command SerialComms::parse(const Command::Move& lastMove, const int16_t* currentAngles) {
+    while (Serial.available() > 0) {
+        switch (_state) {
+            case (State::None): {
+                uint8_t token = Serial.read();
+                // this block handles argumentless tokens
                 switch (token) {
-                case (T_CALIBRATE):         cmd.cmd = Command::ArgType::Calibrate; break;
-                case (T_MOVE):              cmd.cmd = Command::ArgType::MoveSequentially; break;
-                case (T_SIMULTANEOUS_MOVE): cmd.cmd = Command::ArgType::MoveSimultaneously; break;
-                case (T_MEOW):              cmd.cmd = Command::ArgType::Meow; break;
-                case (T_BEEP):              cmd.cmd = Command::ArgType::Beep; break;
-                }
+                    case T_PAUSE:       return Command::Command(Command::Simple::Pause);
+                    case T_GYRO:        return Command::Command(Command::Simple::GyroToggle);
+                    case T_REST:        return Command::Command(Command::Simple::Rest);
+                    case T_SIT:         return Command::Command(Command::Simple::Sit);
+                    case T_STRETCH:     return Command::Command(Command::Simple::Stretch);
+                    // Calibration Commands
+                    case T_SAVE:        return Command::Command(Command::Simple::SaveServoCalibration);
+                    case T_ABORT:       return Command::Command(Command::Simple::AbortServoCalibration);
+                    // Diagnostic Commands
+                    case T_JOINTS:      return Command::Command(Command::Simple::ShowJointAngles);
+                    case T_HELP:        return Command::Command(Command::Simple::ShowHelp);
+                    // Commands with arguments
+                    case T_CALIBRATE: //calibration
+                    case T_MOVE: //move multiple indexed joints to angles once at a time
+                    case T_SIMULTANEOUS_MOVE: //move multiple indexed joints to angles simultaneously
+                    case T_MEOW: //meow (repeat, increament)
+                    case T_BEEP: //beep(tone, duration): tone 0 is pause, duration range is 0~255
+                    {
+                        Command::WithArgs cmd = {};
+                        cmd.len = 0;
+                        switch (token) {
+                        case (T_CALIBRATE):         cmd.cmd = Command::ArgType::Calibrate; break;
+                        case (T_MOVE):              cmd.cmd = Command::ArgType::MoveSequentially; break;
+                        case (T_SIMULTANEOUS_MOVE): cmd.cmd = Command::ArgType::MoveSimultaneously; break;
+                        case (T_MEOW):              cmd.cmd = Command::ArgType::Meow; break;
+                        case (T_BEEP):              cmd.cmd = Command::ArgType::Beep; break;
+                        }
 
-                if (token == T_SIMULTANEOUS_MOVE) {
-                    cmd.len = DOF;
-                    for (int i = 0; i < DOF; i += 1) {
-                        cmd.args[i] = currentAngles[i];
+                        if (token == T_SIMULTANEOUS_MOVE) {
+                            cmd.len = DOF;
+                            for (int i = 0; i < DOF; i += 1) {
+                                cmd.args[i] = currentAngles[i];
+                            }
+                        }
+                        String inBuffer = Serial.readStringUntil('\n');
+                        char temp[64]  = {'\0'};
+                        strcpy(temp, inBuffer.c_str());
+                        char *pch;
+                        pch = strtok(temp, " ,");
+                        do {//it supports combining multiple commands at one time
+                            //for example: "m8 40 m8 -35 m 0 50" can be written as "m8 40 8 -35 0 50"
+                            //the combined commands should be less than four. string len <=30 to be exact.
+                            int target[2] = {};
+                            byte inLen = 0;
+                            for (byte b = 0; b < 2 && pch != NULL; b++) {
+                                target[b] = atoi(pch);
+                                pch = strtok(NULL, " ,\t");
+                                inLen++;
+                            }
+                            if (inLen != 2) {
+                                break; // Args are expected to arrive in pairs.
+                            }
+                            if (token == T_SIMULTANEOUS_MOVE) {
+                                cmd.args[target[0]] = (int8_t)target[1];
+                            } else {
+                                cmd.args[cmd.len++] = (int8_t)target[0]; 
+                                cmd.args[cmd.len++] = (int8_t)target[1]; 
+                            }
+                        } while (pch != NULL);
+                        return Command::Command(cmd);
                     }
+                    case T_SKILL: {
+                        _state = State::Skill;
+                        break;
+                    }
+
+                    default: { break; } // Try again.
                 }
-                String inBuffer = serial.readStringUntil('\n');
-                char temp[64]  = {'\0'};
-                strcpy(temp, inBuffer.c_str());
-                char *pch;
-                pch = strtok(temp, " ,");
-                do {//it supports combining multiple commands at one time
-                    //for example: "m8 40 m8 -35 m 0 50" can be written as "m8 40 8 -35 0 50"
-                    //the combined commands should be less than four. string len <=30 to be exact.
-                    int target[2] = {};
-                    byte inLen = 0;
-                    for (byte b = 0; b < 2 && pch != NULL; b++) {
-                        target[b] = atoi(pch);
-                        pch = strtok(NULL, " ,\t");
-                        inLen++;
-                    }
-                    if (inLen != 2) {
-                        break; // Args are expected to arrive in pairs.
-                    }
-                    if (token == T_SIMULTANEOUS_MOVE) {
-                        cmd.args[target[0]] = (int8_t)target[1];
-                    } else {
-                        cmd.args[cmd.len++] = (int8_t)target[0]; 
-                        cmd.args[cmd.len++] = (int8_t)target[1]; 
-                    }
-                } while (pch != NULL);
-                return Command::Command(cmd);
+                break;
             }
-            case T_SKILL: {
-                uint8_t skill = serial.read();
+            case (State::Skill): {
+                _state = State::None; // Will return to None regardless of result.
+                uint8_t skill = Serial.read();
                 switch (skill) {  
                     case S_FORWARD:     return Command::Command(Command::Direction::Forward, lastMove);
                     case S_LEFT:        return Command::Command(Command::Direction::Left, lastMove);
@@ -133,12 +144,8 @@ Command::Command parseSerial(Stream& serial, const Command::Move& lastMove, cons
                     case S_DEAD:        return Command::Command(Command::Simple::Dead);
                     case S_ZERO:        return Command::Command(Command::Simple::Zero);
                     default:            break;
-                }
-                break;
+                };
             }
-
-
-            default: { break; } // Try again.
         }
     }
     return Command::Command();

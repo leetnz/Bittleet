@@ -2,7 +2,7 @@ FLAGS = -Wall -Itest/catch -Isrc -Itest/mock
 
 G++ = g++
 
-TEST_SRC = $(wildcard test/*.cpp)
+TEST_SRC = $(wildcard test/*.cpp test/**/*.cpp)
 TEST_OBJ = $(patsubst test/%.cpp,obj/test/%.o,$(TEST_SRC))
 
 APP_SRC = $(filter-out src/OpenCat.cpp, $(wildcard src/*.cpp)) # OpenCat not ready yet...
@@ -14,7 +14,7 @@ all: test
 test: setup bittleet_tests runTest
 
 setup:
-	mkdir -p obj/test
+	mkdir -p obj/test/mock
 	mkdir -p obj/src
 
 .PHONY: runTest

@@ -6,20 +6,15 @@
 
 class Stream {
 public:
-    Stream(const std::string& bytes) : buffer(bytes) {}
+    Stream(const std::string& bytes);
 
-    int available(){ return (int)buffer.size(); };
-    int read() {
-        if (buffer.empty()) {
-            return -1; 
-        }
-        int value = buffer.front();
-        buffer = buffer.substr(1);
-        return value;
-    }
-    std::string readStringUntil(char terminator) { return ""; };
+    int available();
+    int read();
+    std::string readStringUntil(char terminator);
 
     std::string buffer;
 };
+
+extern Stream Serial;
 
 # endif // _BITTLEET_MOCK_ARDUINO_STREAM_H_
