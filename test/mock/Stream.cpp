@@ -18,4 +18,6 @@ int Stream::read() {
     return value;
 }
 
-std::string Stream::readStringUntil(char terminator) { return ""; }
+std::string Stream::readStringUntil(char terminator) {
+    return buffer; 
+}

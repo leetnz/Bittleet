@@ -15,6 +15,8 @@ using Simple = Command::Simple;
 using Move = Command::Move;
 using Pace = Command::Pace;
 using Direction = Command::Direction;
+using WithArgs = Command::WithArgs;
+using ArgType = Command::ArgType;
 
 TEST_CASE("ParseSerial_Simple", "[Comms]" ) 
 { 
@@ -36,7 +38,7 @@ TEST_CASE("ParseSerial_Simple", "[Comms]" )
         { "Show Help",          "h", Command::Command(Command::Simple::ShowHelp)},
     };
 
-    Command::Move move = Command::Move{Command::Pace::Medium, Command::Direction::Forward};
+    Move move = Move{Pace::Medium, Direction::Forward};
     int16_t currentPos[DOF] = {};
 
     for (auto& tc : testCases) {
@@ -71,7 +73,7 @@ TEST_CASE("ParseSerial_Simple_Skills", "[Comms]" )
         { "ZERO",       "kz", Command::Command(Simple::Zero)},
     };
 
-    Command::Move move = Command::Move{Command::Pace::Medium, Command::Direction::Forward};
+    Move move = Move{Pace::Medium, Direction::Forward};
     int16_t currentPos[DOF] = {};
 
     for (auto& tc : testCases) {
@@ -180,6 +182,69 @@ TEST_CASE("ParseSerial_Move", "[Comms]" )
             }
         }
     } 
+}
+
+TEST_CASE("ParseSerial_WithArgsSimple", "[Comms]" ) 
+{
+    struct Setup {
+        std::string name;
+        std::string token;
+        ArgType argType;
+    };      
+
+    const std::vector<Setup> setups = {
+        { "Calibrate",  "c", ArgType::Calibrate },
+        { "Move",       "m", ArgType::MoveSequentially },
+        { "Meow",       "u", ArgType::Meow },
+        { "Beep",       "b", ArgType::Beep },
+    };
+
+    for (auto& setup : setups) {
+        struct TestCase {
+            std::string name;
+            std::string bytes;
+            Command::Command expected;
+        };
+
+        const std::vector<TestCase> testCases = {
+            { "{}",                 setup.token + "\n",                 Command::Command(WithArgs{setup.argType, 0, {}})},
+            { "{1,5}",              setup.token + "1 5\n",              Command::Command(WithArgs{setup.argType, 2, {1, 5}})},
+            { "{1,-5}",             setup.token + "1 -5\n",             Command::Command(WithArgs{setup.argType, 2, {1, -5}})},
+            { "{1,2,3,4,5,6,7,8}",  setup.token + "1,2,3,4,5,6,7,8\n",  Command::Command(WithArgs{setup.argType, 8, {1,2,3,4,5,6,7,8}})},
+            { "Expected in pairs",  setup.token + "1,2,3,4,5,6,7\n",    Command::Command(WithArgs{setup.argType, 6, {1,2,3,4,5,6}})},
+            { 
+                "Exactly 16 Arguments",  
+                setup.token + "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16\n",  
+                Command::Command(WithArgs{setup.argType, 16, {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}})
+            },
+            { 
+                "Exactly 64 bytes",   
+                setup.token + "03   ,09   ,15   ,21   ,27   ,33   ,39   ,45,48,51,54,57,61, 64\n", 
+                Command::Command(WithArgs{setup.argType, 14, {3, 9, 15, 21, 27, 33, 39, 45, 48, 51, 54, 57, 61, 64}})
+            },
+            { 
+                "More than 16 arguments", 
+                setup.token + "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17\n",  
+                Command::Command()
+            },
+            { 
+                "More than 64 bytes", 
+                setup.token + "03   ,09   ,15   ,21   ,27   ,33,36,39,42,45,48,51,54,57,61,  65\n",  
+                Command::Command()
+            },
+        };
+
+        const Move move = Move{Pace::Medium, Direction::Forward};
+        const int16_t currentPos[DOF] = {};
+
+        for (auto& tc : testCases) {
+            SECTION(setup.name + " " + tc.name) {
+                SerialComms comms{};
+                Serial = Stream(tc.bytes);
+                REQUIRE(tc.expected == comms.parse(move, currentPos));
+            }
+        }
+    }
 }
 
 

@@ -19,6 +19,7 @@ class SerialComms {
             Skill
         };
         State _state = State::None;
+        char _argStr[64]  = {'\0'};
 };
 
 }

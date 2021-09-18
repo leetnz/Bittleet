@@ -83,10 +83,11 @@ enum class ArgType : uint8_t {
     TOTAL
 };
 
+# define COMMAND_MAX_ARGS (16)
 struct WithArgs {
     ArgType cmd;
     uint8_t len;
-    int8_t args[16];
+    int8_t args[COMMAND_MAX_ARGS];
 };
 
 struct Move {

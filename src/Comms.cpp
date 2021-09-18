@@ -50,7 +50,6 @@ Command::Command SerialComms::parse(const Command::Move& lastMove, const int16_t
         switch (_state) {
             case (State::None): {
                 uint8_t token = Serial.read();
-                // this block handles argumentless tokens
                 switch (token) {
                     case T_PAUSE:       return Command::Command(Command::Simple::Pause);
                     case T_GYRO:        return Command::Command(Command::Simple::GyroToggle);
@@ -81,19 +80,22 @@ Command::Command SerialComms::parse(const Command::Move& lastMove, const int16_t
                         }
 
                         if (token == T_SIMULTANEOUS_MOVE) {
-                            cmd.len = DOF;
                             for (int i = 0; i < DOF; i += 1) {
                                 cmd.args[i] = currentAngles[i];
                             }
                         }
                         String inBuffer = Serial.readStringUntil('\n');
+                        if (inBuffer.length() > 64) {
+                            return Command::Command(); // Too many bytes!
+                        }
                         char temp[64]  = {'\0'};
                         strcpy(temp, inBuffer.c_str());
                         char *pch;
                         pch = strtok(temp, " ,");
-                        do {//it supports combining multiple commands at one time
-                            //for example: "m8 40 m8 -35 m 0 50" can be written as "m8 40 8 -35 0 50"
-                            //the combined commands should be less than four. string len <=30 to be exact.
+                        while (pch != NULL) {
+                            if (cmd.len >= COMMAND_MAX_ARGS) {
+                                return Command::Command(); // Too many arguments!
+                            }
                             int target[2] = {};
                             byte inLen = 0;
                             for (byte b = 0; b < 2 && pch != NULL; b++) {
@@ -110,7 +112,10 @@ Command::Command SerialComms::parse(const Command::Move& lastMove, const int16_t
                                 cmd.args[cmd.len++] = (int8_t)target[0]; 
                                 cmd.args[cmd.len++] = (int8_t)target[1]; 
                             }
-                        } while (pch != NULL);
+                        };
+                        if (token == T_SIMULTANEOUS_MOVE) {
+                            cmd.len = DOF;
+                        }
                         return Command::Command(cmd);
                     }
                     case T_SKILL: {
@@ -145,6 +150,7 @@ Command::Command SerialComms::parse(const Command::Move& lastMove, const int16_t
                     case S_ZERO:        return Command::Command(Command::Simple::Zero);
                     default:            break;
                 };
+                break;
             }
         }
     }
