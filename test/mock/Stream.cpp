@@ -1,3 +1,13 @@
+//
+// Arduino Stream Mock
+// Allows us to mock Serial
+//
+// Hoani Bryson (github.com/hoani)
+// Copyright (c) 2021 Leetware Limited.
+// License - MIT
+//
+
+
 #include <string>
 #include <iostream>
 

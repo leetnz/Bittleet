@@ -221,11 +221,7 @@ void setup() {
 
   delay(100);
   PTLF("\n* Start *");
-#ifdef BITTLE
   PTLF("Bittle");
-#elif defined NYBBLE
-  PTLF("Nybble");
-#endif
   PTLF("Initialize I2C");
   initI2C();
   PTLF("Connect MPU6050");

@@ -46,7 +46,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 ServoRange servoRange[DOF] = {};
 int16_t currentAng[DOF] = {};
 AdjustAngle currentAdjust[DOF] = {};
-int calibratedDuty0[DOF] = {};
+int16_t calibratedDuty0[DOF] = {};
 
 float postureOrWalkingFactor;
 

@@ -1,6 +1,13 @@
+//
+// Battery
+// Battery State Monitor
+//
+// Hoani Bryson (github.com/hoani)
+// Copyright (c) 2021 Leetware Limited.
+// License - MIT
+//
 
 #include "battery.h"
-
 
 #define MAX_MV (10000)
 #define MV_PER_COUNT (10) // Actually 10.24, but close enough.

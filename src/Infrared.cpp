@@ -1,3 +1,13 @@
+//
+// Bittleet Infrared
+// Convert Infrared Signals Bittle Commands
+//
+// Hoani Bryson (github.com/hoani)
+// Copyright (c) 2021 Leetware Limited.
+// License - MIT
+//
+
+
 #include "Infrared.h"
 
 namespace Infrared {

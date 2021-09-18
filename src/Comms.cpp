@@ -1,3 +1,13 @@
+//
+// Bittleet Comms
+// Convert Serial Data into Bittle Commands
+//
+// Hoani Bryson (github.com/hoani)
+// Copyright (c) 2021 Leetware Limited.
+// License - MIT
+//
+
+
 #include "Comms.h"
 #include "Bittle.h"
 

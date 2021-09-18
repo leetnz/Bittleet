@@ -1,3 +1,12 @@
+//
+// Infrared Tests
+//
+// Hoani Bryson (github.com/hoani)
+// Copyright (c) 2021 Leetware Limited.
+// License - MIT
+//
+
+
 #include "catch.hpp"
 
 #include <vector>

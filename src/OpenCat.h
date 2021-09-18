@@ -209,6 +209,8 @@ int EEPROMReadInt(int p_address);
 #define PAGE_LIMIT 32 //AT24C32D 32-byte Page Write Mode. Partial Page Writes Allowed
 #define EEPROM_SIZE (65536/8)
 
+#define NUM_SKILLS 31
+
 
 
 void copyDataFromPgmToI2cEeprom(unsigned int &eeAddress, unsigned int pgmAddress);

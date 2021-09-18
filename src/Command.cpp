@@ -1,4 +1,13 @@
 
+//
+// Bittleet Commands
+// Provides Structures Commands for Bittle
+//
+// Hoani Bryson (github.com/hoani)
+// Copyright (c) 2021 Leetware Limited.
+// License - MIT
+//
+
 #include "Command.h"
 
 namespace Command {

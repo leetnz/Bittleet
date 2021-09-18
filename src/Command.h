@@ -1,36 +1,16 @@
+//
+// Bittleet Commands
+// Provides Structures Commands for Bittle
+//
+// Hoani Bryson (github.com/hoani)
+// Copyright (c) 2021 Leetware Limited.
+// License - MIT
+//
+
 #ifndef _BITTLEET_COMMANDS_H_
-#define  _BITTLEET_COMMANDS_H_
+#define _BITTLEET_COMMANDS_H_
 
 #include<Arduino.h>
-
-
-#define CMD_REST        "d"       //rest and shutdown all servos 
-#define CMD_FORWARD     "F"       //forward
-#define CMD_GYRO_OFF    "g"       //turn off gyro feedback to boost speed
-
-#define CMD_LEFT        "L"       //left
-#define CMD_BALANCE     "balance" //neutral stand up posture
-#define CMD_RIGHT       "R"       //right
-
-#define CMD_PAUSE       "p"       //pause motion and shut off all servos 
-#define CMD_BACKWARD    "B"       //backward
-#define CMD_CALIBRATE   "c"       //calibration mode with IMU turned off
-
-#define CMD_STEP        "vt"      //stepping
-#define CMD_CRAWL       "cr"      //crawl
-#define CMD_WALK        "wk"      //walk
-
-#define CMD_TROT        "tr"      //trot
-#define CMD_SIT         "sit"     //sit
-#define CMD_STRETCH     "str"     //stretch
-
-#define CMD_GREET       "hi"      //greeting
-#define CMD_PUSHUP      "pu"      //push up
-#define CMD_HYDRANT     "pee"     //standng with three legs
-
-#define CMD_CHECK       "ck"      //check around
-#define CMD_DEAD        "pd"      //play dead
-#define CMD_ZERO        "zero"    //zero position
 
 namespace Command {
 
