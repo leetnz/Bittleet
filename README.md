@@ -15,9 +15,13 @@ Requires `g++` and `make`. Run tests with:
 make test
 ```
 
+## Interfacing with Bittleet
+
+* [Bittleet Serial Protocol](https://github.com/leetnz/Bittleet/wiki/Bittleet-Communication-Protocol)
+
+
 # TODO
 
-- [ ] Document Serial Protocol
 - [ ] Document Installation Dependencies
 - [ ] Implement `PixelStatusReporter` to use the neopixels to communicate Bittle status 
 - [ ] Make Skill commands their own Command category - will consume a little extra RAM

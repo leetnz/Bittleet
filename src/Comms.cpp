@@ -25,7 +25,7 @@
 #define T_SIMULTANEOUS_MOVE 'M'
 #define T_MELODY    'o'
 #define T_PAUSE     'p'
-#define T_RAMP      'r'
+#define T_RESET     'r'
 #define T_SAVE      's'
 #define T_SKILL     'k'
 #define T_MEOW      'u'
