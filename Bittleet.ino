@@ -34,6 +34,7 @@
 
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
+#include <Adafruit_NeoPixel.h>
 
 #include "src/Battery.h"
 #include "src/Infrared.h"
@@ -41,6 +42,11 @@
 
 #define PACKET_SIZE 42
 #define OVERFLOW_THRESHOLD 128
+
+// NeoPixel integration
+#define PIXEL_PIN 10
+#define PIXEL_COUNT 10
+Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
 
 //#if OVERFLOW_THRESHOLD>1024-1024%PACKET_SIZE-1   // when using (1024-1024%PACKET_SIZE) as the overflow resetThreshold, the packet buffer may be broken
 // and the reading will be unpredictable. it should be replaced with previous reading to avoid jumping
@@ -312,6 +318,12 @@ void setup() {
   pinMode(BUZZER, OUTPUT);
 
   meow();
+
+  pixels.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+  pixels.show();            // Turn OFF all pixels ASAP
+  pixels.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
+  pixels.setPixelColor(0, pixels.Color(255, 0, 0)); //  Set pixel's color (in RAM)
+  pixels.show(); 
 }
 
 void loop() {
@@ -320,8 +332,8 @@ void loop() {
   static Command::Command newCmd;
   static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
   int battAdcReading = analogRead(BATT);
-  Battery::State battState = Battery::state(battAdcReading);
-  if (battState == Battery::State::Low) { //if battery voltage < threshold, it needs to be recharged
+  Status::Battery battState = Battery::state(battAdcReading);
+  if (battState.level == Status::BatteryLevel::Low) { //if battery voltage < threshold, it needs to be recharged
     PTLF("Low power!");
     beep(15, 50, 50, 3);
     delay(1500); // HOANI TODO: Should be disabling all servos here

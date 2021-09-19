@@ -13,6 +13,7 @@
 #include "Arduino.h"
 
 #include "Battery.h"
+#include "Status.h"
 
 using namespace Battery;
 
@@ -22,18 +23,21 @@ TEST_CASE("State", "[Battery]" )
     struct TestCase {
         std::string name;
         int measurement;
-        State expected;
+        Status::Battery expected;
     };
 
     const std::vector<TestCase> testCases = {
-        { "No Battery",      0, State::None},
-        { "Low Battery",   300, State::Low},
-        { "Good Battery",  700, State::Ok},
+        { "No Battery",      0, Status::Battery{Status::BatteryLevel::None, 0}},
+        { "Low Battery",   300, Status::Battery{Status::BatteryLevel::Low, 0}},
+        { "Good Battery",  730, Status::Battery{Status::BatteryLevel::Ok, 50}},
+        { "Full Battery",  820, Status::Battery{Status::BatteryLevel::Ok, 100}},
+        { "Overcharged",  1000, Status::Battery{Status::BatteryLevel::Ok, 100}},
     };
 
     for (auto& tc : testCases) {
         SECTION(tc.name) {
-            REQUIRE(tc.expected == state(tc.measurement));
+            REQUIRE(tc.expected.level == state(tc.measurement).level);
+            REQUIRE(tc.expected.percent == state(tc.measurement).percent);
         }
     }
 }

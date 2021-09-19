@@ -11,23 +11,11 @@
 #define _BITTLEET_BATTERY_H_
 
 #include <stdint.h>
+#include "Status.h"
 
 namespace Battery {
 
-    enum class Direction : uint8_t {
-    Forward = 0,
-    Left,
-    Right,
-    TOTAL
-};
-
-enum class State : uint8_t {
-    None = 0,
-    Low,
-    Ok
-};
-
-State state(int adcRead);
+Status::Battery state(int adcRead);
 
 }
 
