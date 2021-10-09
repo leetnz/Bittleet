@@ -147,6 +147,11 @@ void getYPR() {
 
       // --
     } else if (mpuIntStatus & MPU_INT_STATUS_DATARDY) {
+      while (fifoCount >= packetSize*2)
+      {
+        getFIFO();
+        fifoCount = mpu.getFIFOCount();
+      }
       // We only find out of the last read was an error if the next read is good. So we can only rely on previous reads.
       if (processLast) {
         // get Euler angles in degrees
@@ -294,7 +299,8 @@ void setup() {
   PTL();
 
   // servo
-  { pwm.begin();
+  { 
+    pwm.begin();
 
     pwm.setPWMFreq(60 * PWM_FACTOR); // Analog servos run at ~60 Hz updates
     delay(200);
@@ -394,7 +400,7 @@ void loop() {
             enableMotion = false;
             break;
           }
-          case Command::Simple::GyroToggle: { // TODO: This may possibly be a toggle - check logic
+          case Command::Simple::GyroToggle: {
             if (!checkGyro) {
               checkBodyMotion(enableMotion, newCmd);
             }
