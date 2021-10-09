@@ -34,4 +34,4 @@ public:
 
 }
 
-#endif // _BITTLEET_BATTERY_H_
+#endif // _BITTLEET_ATTITUDE_H_
