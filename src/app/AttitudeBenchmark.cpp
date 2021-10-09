@@ -8,6 +8,7 @@
 //
 
 #include "AttitudeBenchmark.h"
+#include "../Attitude.h"
 
 #include <I2Cdev.h>
 #include <MPU6050.h>
@@ -30,36 +31,36 @@ void AttitudeBenchmark::setup() {
 }
 
 void AttitudeBenchmark::loop() {
+  static Attitude::Attitude attitude;
   uint32_t dt = micros();
-  int16_t ax, ay, az;
-  mpu.getAcceleration(&ax, &ay, &az);
+  Attitude::GravityMeasurement g;
+  mpu.getAcceleration(&g.x, &g.y, &g.z);
   dt = micros() - dt;
 
   Serial.print("dt (us): ");
   Serial.print(dt);
   Serial.print("\t");
   Serial.print("ax: ");
-  Serial.print(ax);
+  Serial.print(g.x);
   Serial.print("\t");
   Serial.print("ay: ");
-  Serial.print(ay);
+  Serial.print(g.y);
   Serial.print("\t");
   Serial.print("az: ");
-  Serial.print(az);
+  Serial.print(g.z);
   Serial.print("\n");
   delay(1000);
   dt = micros();
-  float roll = -atan2f(ay, az);
-  float pitch = -atan2f(ax, az);
+  Attitude::Angles angles = attitude.update(g);
   dt = micros() - dt;
   Serial.print("dt (us): ");
   Serial.print(dt);
   Serial.print("\t");
   Serial.print("roll: ");
-  Serial.print(roll);
+  Serial.print(angles.roll);
   Serial.print("\t");
   Serial.print("pitch: ");
-  Serial.print(pitch);
+  Serial.print(angles.pitch);
   Serial.print("\n");
 
 }

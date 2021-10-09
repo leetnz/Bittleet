@@ -16,7 +16,7 @@
 namespace Attitude {
 
 struct GravityMeasurement {
-    uint16_t x, y, z;
+    int16_t x, y, z;
 };
 
 struct Angles {
@@ -29,7 +29,6 @@ public:
     Attitude() = default;
 
     Angles update(const GravityMeasurement& gravity);
-
 };
 
 }
