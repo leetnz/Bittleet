@@ -13,6 +13,7 @@
 #include <string>
 #include <cstring>
 #include <sstream>
+#include <math.h>
 
 #include "Stream.h"
 
