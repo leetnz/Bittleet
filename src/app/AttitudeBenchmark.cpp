@@ -15,7 +15,7 @@
 
 static MPU6050 mpu;
 
-void initI2C() {
+static void initI2C() {
   Wire.begin();
   Wire.setClock(400000);
 }
