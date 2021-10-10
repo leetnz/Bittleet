@@ -22,6 +22,7 @@ struct GravityMeasurement {
 class Attitude {
 public:
     Attitude() = default;
+    Attitude(float filterCoeff) : _filterCoeff(filterCoeff){}
 
     void update(const GravityMeasurement& gravity);
     float roll() { return _roll; }
@@ -29,6 +30,7 @@ public:
 private:
     float _roll = 0.0;
     float _pitch = 0.0;
+    float _filterCoeff = 1.0; // 1.0 = no filtering, value should be between [0.0, 1.0]
 };
 
 }

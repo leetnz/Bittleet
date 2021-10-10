@@ -50,8 +50,8 @@ int16_t calibratedDuty0[DOF] = {};
 
 float postureOrWalkingFactor;
 
-float RollPitchDeviation[2];
-int8_t ramp = 1;
+float rollDeviation;
+float pitchDeviation;
 
 Motion motion;
 
@@ -189,21 +189,20 @@ void assignSkillAddressToOnboardEeprom() {
 }
 
 float adjust(byte i) {
-  float rollAdj, pitchAdj, adj;
+  float rollAdj;
   if (i == 1 || i > 3)  {//check idx = 1
     bool leftQ = (i - 1 ) % 4 > 1 ? true : false;
-    float leftRightFactor = 1;
-    if ((leftQ && ramp * RollPitchDeviation[0] > 0 )// operator * is higher than &&
-        || ( !leftQ && ramp * RollPitchDeviation[0] < 0))
-      leftRightFactor = LEFT_RIGHT_FACTOR * abs(ramp);
-    rollAdj = fabs(RollPitchDeviation[0]) * adaptiveCoefficient(i, 0) * leftRightFactor;
-
+    float leftRightFactor = 1.0;
+    if ((leftQ && rollDeviation > 0 ) || ( !leftQ && rollDeviation < 0)) {
+      leftRightFactor = LEFT_RIGHT_FACTOR;
+    }
+    rollAdj = fabs(rollDeviation) * adaptiveCoefficient(i, 0) * leftRightFactor;
   }
-  else
-    rollAdj = RollPitchDeviation[0] * adaptiveCoefficient(i, 0) ;
+  else {
+    rollAdj = rollDeviation * adaptiveCoefficient(i, 0);
+  }
   currentAdjust[i] = M_DEG2RAD * (
-                       (i > 3 ? postureOrWalkingFactor : 1) *
-                       rollAdj - ramp * adaptiveCoefficient(i, 1) * ((i % 4 < 2) ? ( RollPitchDeviation[1]) : RollPitchDeviation[1]));
+                       (i > 3 ? postureOrWalkingFactor : 1.0f) * rollAdj - adaptiveCoefficient(i, 1) * pitchDeviation);
   return currentAdjust[i].toF32();
 }
 

@@ -49,7 +49,7 @@ static MPU6050 mpu;
 
 // NeoPixel integration
 #define PIXEL_PIN 10
-#define PIXEL_COUNT 10
+#define PIXEL_COUNT 7
 Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
 
 
@@ -84,11 +84,10 @@ static int8_t servoCalibs[DOF] = {};
 
 static int8_t tStep = 1; // TODO - this should be a motion flag
 
-static Attitude::Attitude attitude;
+static Attitude::Attitude attitude = Attitude::Attitude(1.0/32.0f);
 #define AXIS_YAW (0)
 #define AXIS_PITCH (1)
 #define AXIS_ROLL (2)
-// static float ypr[3] = {}; // TODO: We never use yaw...
 
 static float angleFromAxis(int axis) {
   switch abs(axis) {
@@ -114,6 +113,7 @@ static void updateAttitude() {
 
 #define LARGE_PITCH_RAD (LARGE_PITCH * M_DEG2RAD)
 #define LARGE_ROLL_RAD (LARGE_ROLL * M_DEG2RAD)
+
   
 
 
@@ -123,46 +123,44 @@ static void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
   // --
   //deal with accidents
 
-  // TODO: This logic makes no sense... a bunch of redundant checks and delays... 
-  //       Needs a serious tidy up.
+  // TODO: 
+  //     This logic needs to filter for noise so we don't trigger on a small disturbance
   if (fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD ) {//wait until stable
     if (!hold){
       for (byte w = 0; w < 50; w++) {
         delay(10);
       }
-    }
-    if (fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD ) {//check again
-      if (!hold) {
-        enableMotion = true;
-        if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
-          newCmd = Command::Command(Command::Simple::Recover);
-        }
+      if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
+        newCmd = Command::Command(Command::Simple::Recover);
       }
-      hold = 10;
     }
+    hold = 10;
   }
 
   // recover
   else if (hold) {
-    if (hold == 1) {
-      enableMotion = true;
-      newCmd = Command::Command(Command::Simple::Balance);
-    }
-    hold --;
+    hold--;
     if (!hold) {
-      Command::Command temp = newCmd;
       newCmd = lastCmd;
-      lastCmd = temp;
+      lastCmd = Command::Command(Command::Simple::Balance);
       meow();
     }
   }
-  // TODO: Note sure about this logic for small angle filtering
-  //calculate deviation
-  // const float levelTolerance[2] = {ROLL_LEVEL_TOLERANCE, PITCH_LEVEL_TOLERANCE}; //the body is still considered as level, no angle adjustment
-  // for (byte i = 0; i < 2; i++) {
-  //   RollPitchDeviation[i] = ypr[2 - i] - motion.expectedRollPitch[i]; //all in degrees
-  //   RollPitchDeviation[i] = sign(ypr[2 - i]) * max(fabs(RollPitchDeviation[i]) - levelTolerance[i], 0);//filter out small angles
-  // }
+
+  // TODO: Compensation here appears to be wrong - causes jerky motion when walking/balancing.
+  float rollDev = attitude.roll() * M_RAD2DEG - motion.expectedRollPitch[0];
+  float pitchDev = attitude.pitch() * M_RAD2DEG - motion.expectedRollPitch[1];
+  
+  // IIR Hack to attempt to improve the compensation
+  rollDeviation = 0.8*rollDeviation + 0.2*rollDev;
+  pitchDeviation = 0.8*pitchDeviation + 0.2*pitchDev;
+
+  if (fabs(rollDeviation) < ROLL_LEVEL_TOLERANCE) {
+    rollDeviation = 0.0;
+  }
+  if (fabs(pitchDeviation) < PITCH_LEVEL_TOLERANCE) {
+    pitchDeviation = 0.0;
+  }
 }
 
 static void initI2C() {
@@ -185,6 +183,9 @@ static void initIMU() {
   mpu.setXGyroOffset(EEPROMReadInt(MPUCALIB + 6));
   mpu.setYGyroOffset(EEPROMReadInt(MPUCALIB + 8));
   mpu.setZGyroOffset(EEPROMReadInt(MPUCALIB + 10));
+
+  mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyra and accel
+  mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
 }
 
 void Bittleet::setup() {
@@ -469,7 +470,7 @@ void Bittleet::loop() {
 
               if (motion.dutyAngles[18 + c * frameSize]) {
                 int triggerAxis = motion.dutyAngles[18 + c * frameSize];
-                int triggerAngle = motion.dutyAngles[19 + c * frameSize] * M_DEG2RAD;
+                float triggerAngle = (float)motion.dutyAngles[19 + c * frameSize] * M_DEG2RAD;
 
                 float currentAngle = angleFromAxis(triggerAxis);
                 float previousAngle = currentAngle;
@@ -498,8 +499,9 @@ void Bittleet::loop() {
             }
             lastCmd = Command::Command(Command::Simple::Balance);
             skillByCommand(lastCmd, 1, 2, false);
-            for (byte a = 0; a < DOF; a++)
+            for (byte a = 0; a < DOF; a++) {
               currentAdjust[a] = 0.0f;
+            }
             hold = 0;
           } else {
             transform( motion.dutyAngles, motion.angleDataRatio, 1, firstMotionJoint);

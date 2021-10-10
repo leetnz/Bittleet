@@ -28,10 +28,12 @@ void AttitudeBenchmark::setup() {
   initI2C();
   mpu.initialize();
   Serial.println(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+  mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyra and accel
+  mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
 }
 
 void AttitudeBenchmark::loop() {
-  static Attitude::Attitude attitude;
+  static Attitude::Attitude attitude(0.2);
   uint32_t dt = micros();
   Attitude::GravityMeasurement g;
   mpu.getAcceleration(&g.x, &g.y, &g.z);

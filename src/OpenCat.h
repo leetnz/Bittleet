@@ -193,6 +193,9 @@ extern int calibratedDuty0[DOF];
 class Motion;
 extern Motion motion;
 
+extern float rollDeviation;
+extern float pitchDeviation;
+
 
 //--------------------
 
@@ -478,8 +481,8 @@ inline int8_t servoCalib(byte idx) {
 }
 
 // balancing parameters
-#define ROLL_LEVEL_TOLERANCE 3
-#define PITCH_LEVEL_TOLERANCE 2
+#define ROLL_LEVEL_TOLERANCE 1.0
+#define PITCH_LEVEL_TOLERANCE 1.0
 
 #define LARGE_ROLL 90
 #define LARGE_PITCH 75
@@ -498,9 +501,6 @@ inline int8_t servoCalib(byte idx) {
 #define FRONT_BACK_FACTOR 1.2
 #define POSTURE_WALKING_FACTOR 0.5
 extern float postureOrWalkingFactor;
-
-extern float RollPitchDeviation[2];
-extern int8_t ramp;
 
 
 inline int8_t adaptiveCoefficient(byte idx, byte para) {
