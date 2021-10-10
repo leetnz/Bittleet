@@ -72,7 +72,7 @@ TEST_CASE("Attitude::Update_Simple", "[Attitude]" )
     for (auto& tc : testCases) {
         SECTION(tc.name) {
             Attitude::Attitude attitude = Attitude::Attitude();
-            attitude.update(tc.input);
+            REQUIRE(attitude.update(tc.input));
             NEAR(tc.expectedRoll, attitude.roll(), 1e-3f);
             NEAR(tc.expectedPitch, attitude.pitch(), 1e-3f);
         }
@@ -153,7 +153,7 @@ TEST_CASE("Attitude::Update_IIR", "[Attitude]" )
         SECTION(tc.name) {
             Attitude::Attitude attitude = Attitude::Attitude(tc.filterCoefficient);
             for (auto& step: tc.steps) {
-                attitude.update(step.input);
+                REQUIRE(attitude.update(step.input));
                 NEAR(step.expectedRoll, attitude.roll(), 1e-3f);
                 NEAR(step.expectedPitch, attitude.pitch(), 1e-3f);
             }
@@ -188,7 +188,7 @@ TEST_CASE("Attitude::Update_GravityFilter", "[Attitude]" )
     for (auto& tc : testCases) {
         SECTION(tc.name) {
             Attitude::Attitude attitude = Attitude::Attitude();
-            attitude.update(tc.input);
+            REQUIRE_FALSE(attitude.update(tc.input));
             NEAR(tc.expectedRoll, attitude.roll(), 1e-3f);
             NEAR(tc.expectedPitch, attitude.pitch(), 1e-3f);
         }

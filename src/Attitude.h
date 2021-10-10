@@ -24,7 +24,7 @@ public:
     Attitude() = default;
     Attitude(float filterCoeff) : _filterCoeff(filterCoeff){}
 
-    void update(const GravityMeasurement& gravity);
+    bool update(const GravityMeasurement& gravity);
     float roll() { return _roll; }
     float pitch() { return _pitch; }
 private:

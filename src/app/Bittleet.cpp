@@ -105,10 +105,10 @@ static float angleFromAxis(int axis) {
 
 
 
-static void updateAttitude() {
+static bool updateAttitude() {
   Attitude::GravityMeasurement g;
   mpu.getAcceleration(&g.x, &g.y, &g.z);
-  attitude.update(g);
+  return attitude.update(g);
 }
 
 #define LARGE_PITCH_RAD (LARGE_PITCH * M_DEG2RAD)
@@ -119,47 +119,56 @@ static void updateAttitude() {
 
 static void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
   //if (!dmpReady) return;
-  updateAttitude();
+  bool updated = updateAttitude();
+  bool recovering = false;
   // --
   //deal with accidents
 
-  // TODO: 
-  //     This logic needs to filter for noise so we don't trigger on a small disturbance
-  if (fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD ) {//wait until stable
-    if (!hold){
-      for (byte w = 0; w < 50; w++) {
-        delay(10);
+  if (updated) {
+    if ((fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD )) {//wait until stable
+      recovering = true;
+      if (!hold){
+        for (byte w = 0; w < 50; w++) {
+          delay(10);
+        }
+        if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
+          newCmd = Command::Command(Command::Simple::Recover);
+        }
       }
-      if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
-        newCmd = Command::Command(Command::Simple::Recover);
+      hold = 10;
+    } else if (hold) { // recover
+      recovering = true;
+      hold--;
+      if (!hold) {
+        newCmd = lastCmd;
+        lastCmd = Command::Command(Command::Simple::Balance);
+        meow();
       }
     }
-    hold = 10;
   }
 
-  // recover
-  else if (hold) {
-    hold--;
-    if (!hold) {
-      newCmd = lastCmd;
-      lastCmd = Command::Command(Command::Simple::Balance);
-      meow();
-    }
-  }
-
-  // TODO: Compensation here appears to be wrong - causes jerky motion when walking/balancing.
-  float rollDev = attitude.roll() * M_RAD2DEG - motion.expectedRollPitch[0];
-  float pitchDev = attitude.pitch() * M_RAD2DEG - motion.expectedRollPitch[1];
-  
-  // IIR Hack to attempt to improve the compensation
-  rollDeviation = 0.8*rollDeviation + 0.2*rollDev;
-  pitchDeviation = 0.8*pitchDeviation + 0.2*pitchDev;
-
-  if (fabs(rollDeviation) < ROLL_LEVEL_TOLERANCE) {
+  if (recovering) {
     rollDeviation = 0.0;
-  }
-  if (fabs(pitchDeviation) < PITCH_LEVEL_TOLERANCE) {
     pitchDeviation = 0.0;
+  } else {
+    float rollDev = 0.0;
+    float pitchDev = 0.0;
+    // When we don't have a valid update, our filter will regress to zero deviation.
+    if (updated) {
+        rollDev = attitude.roll() * M_RAD2DEG - motion.expectedRollPitch[0];
+        pitchDev = attitude.pitch() * M_RAD2DEG - motion.expectedRollPitch[1];
+    }
+  
+    // IIR Hack to attempt to improve the compensation
+    rollDeviation = (8.0/16.0)*rollDeviation + (8.0/16.0)*rollDev;
+    pitchDeviation = (8.0/16.0)*pitchDeviation + (8.0/16.0)*pitchDev;
+
+    if (fabs(rollDeviation) < ROLL_LEVEL_TOLERANCE) {
+      rollDeviation = 0.0;
+    }
+    if (fabs(pitchDeviation) < PITCH_LEVEL_TOLERANCE) {
+      pitchDeviation = 0.0;
+    }
   }
 }
 

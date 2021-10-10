@@ -481,8 +481,8 @@ inline int8_t servoCalib(byte idx) {
 }
 
 // balancing parameters
-#define ROLL_LEVEL_TOLERANCE 1.0
-#define PITCH_LEVEL_TOLERANCE 1.0
+#define ROLL_LEVEL_TOLERANCE 0.25
+#define PITCH_LEVEL_TOLERANCE 0.25
 
 #define LARGE_ROLL 90
 #define LARGE_PITCH 75

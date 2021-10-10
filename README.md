@@ -21,13 +21,10 @@ make test
 
 # feature/rollpitch branch
 
-- [ ] Bug - On recovery, bittle will use an old stale angle measurement once it has recovered 
-    - need to look at how we want to manage angles after recovery 
-        - perhaps just let bittle chill for a little while when recovered?
-    - this is likely to occur randomly during gait too
-        - will want to figure out how to decay trust in stale measurements?
 - [ ] Add a scheduler - Bittle should not be operating at an arbitrary update rate - it should be updated at a known frequency
 - [ ] Update multiple joints in sync - this seems like an obvious win for update rates.
+- [ ] Address non-detection of being upside down, this occasionally occurs in recovery
+- [ ] Look for ways of marking stale attitude state - potentially pass a time in the update function?
 
 
 # TODO
