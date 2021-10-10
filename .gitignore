@@ -1,3 +1,4 @@
 bittleet_tests
 **/*.o
 obj
+.*

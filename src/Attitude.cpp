@@ -12,11 +12,9 @@
 
 namespace Attitude{
 
-Angles Attitude::update(const GravityMeasurement& g) {
-    return Angles {
-        .roll = -(float)atan2(g.y, g.z),
-        .pitch = -(float)atan2(g.x, g.z)
-    };
+void Attitude::update(const GravityMeasurement& g) {
+    _roll = -(float)atan2(g.y, g.z);
+    _pitch = -(float)atan2(g.x, g.z);
 }
 
 }

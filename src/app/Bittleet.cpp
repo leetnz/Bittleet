@@ -35,49 +35,28 @@
 #include "../Comms.h"
 
 #include <I2Cdev.h>
-#include <MPU6050_6Axis_MotionApps20.h>
+#include <MPU6050.h>
+
+
 #include <Adafruit_NeoPixel.h>
 
 #include "../Battery.h"
 #include "../Infrared.h"
 
+#include "../Attitude.h"
 
-#define PACKET_SIZE 42
-#define OVERFLOW_THRESHOLD 128
+static MPU6050 mpu;
 
 // NeoPixel integration
 #define PIXEL_PIN 10
 #define PIXEL_COUNT 10
 Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
 
-//#if OVERFLOW_THRESHOLD>1024-1024%PACKET_SIZE-1   // when using (1024-1024%PACKET_SIZE) as the overflow resetThreshold, the packet buffer may be broken
-// and the reading will be unpredictable. it should be replaced with previous reading to avoid jumping
-#define FIX_OVERFLOW
-//#endif
-#define HISTORY 2
-int8_t lag = 0;
-
-
-MPU6050 mpu;
-#define OUTPUT_READABLE_YAWPITCHROLL
-// MPU control/status vars
-//bool dmpReady = false;  // set true if DMP init was successful
-uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
-uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
-uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
-uint16_t fifoCount;     // count of all bytes currently in FIFO
-uint8_t fifoBuffer[PACKET_SIZE]; // FIFO storage buffer
-
 
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
 // ================================================================
-
-volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
-void dmpDataReady() {
-  mpuInterrupt = true;
-}
 
 // https://brainy-bits.com/blogs/tutorials/ir-remote-arduino
 #include <IRremote.h>
@@ -105,87 +84,57 @@ static int8_t servoCalibs[DOF] = {};
 
 static int8_t tStep = 1; // TODO - this should be a motion flag
 
-static void getFIFO() {//get FIFO only without further processing
-  while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+static Attitude::Attitude attitude;
+#define AXIS_YAW (0)
+#define AXIS_PITCH (1)
+#define AXIS_ROLL (2)
+// static float ypr[3] = {}; // TODO: We never use yaw...
 
-  // read a packet from FIFO
-  mpu.getFIFOBytes(fifoBuffer, packetSize);
-
-  // track FIFO count here in case there is > 1 packet available
-  // (this lets us immediately read more without waiting for an interrupt)
-  fifoCount -= packetSize;
-}
-
-#define MPU_INT_STATUS_OVERFLOW (0x10)
-#define MPU_INT_STATUS_DATARDY  (0x01)
-
-#define YPR_YAW (0)
-#define YPR_PITCH (1)
-#define YPR_ROLL (2)
-static float ypr[3] = {}; // TODO: We never use yaw...
-
-static void getYPR() {
-  
-  static bool processLast = false;
-  // orientation/motion vars
-  Quaternion q;           // [w, x, y, z]         quaternion container
-  VectorFloat gravity;    // [x, y, z]            gravity vector
-  //get YPR angles from FIFO data, takes time
-  // wait for MPU interrupt or extra packet(s) available
-  //while (!mpuInterrupt && fifoCount < packetSize) ;
-  if (mpuInterrupt || fifoCount >= packetSize)
-  {
-    // reset interrupt flag and get INT_STATUS byte
-    mpuInterrupt = false;
-    mpuIntStatus = mpu.getIntStatus();
-
-    // get current FIFO count
-    fifoCount = mpu.getFIFOCount();
-    // check for overflow (this should never happen unless our code is too inefficient)
-    if ((mpuIntStatus & MPU_INT_STATUS_OVERFLOW) || fifoCount > OVERFLOW_THRESHOLD) { //1024) {
-      // reset so we can continue cleanly
-      mpu.resetFIFO();
-      processLast = false; // Use the previous read.
-
-      // --
-    } else if (mpuIntStatus & MPU_INT_STATUS_DATARDY) {
-      while (fifoCount >= packetSize*2)
-      {
-        getFIFO();
-        fifoCount = mpu.getFIFOCount();
-      }
-      // We only find out of the last read was an error if the next read is good. So we can only rely on previous reads.
-      if (processLast) {
-        // get Euler angles in degrees
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-        ypr[0] = ypr[0] * M_RAD2DEG;
-        ypr[1] = ypr[1] * M_RAD2DEG;
-        ypr[2] = ypr[2] * M_RAD2DEG;
-      }
-      // wait for correct available data length, should be a VERY short wait
-      getFIFO();
-      processLast = true;
+static float angleFromAxis(int axis) {
+  switch abs(axis) {
+    case AXIS_ROLL: {
+      return attitude.roll();
+    }
+    case AXIS_PITCH: {
+      return attitude.pitch();
+    }
+    default: {
+      return 0.0f;
     }
   }
 }
 
+
+
+static void updateAttitude() {
+  Attitude::GravityMeasurement g;
+  mpu.getAcceleration(&g.x, &g.y, &g.z);
+  attitude.update(g);
+}
+
+#define LARGE_PITCH_RAD (LARGE_PITCH * M_DEG2RAD)
+#define LARGE_ROLL_RAD (LARGE_ROLL * M_DEG2RAD)
+  
+
+
 static void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
   //if (!dmpReady) return;
-  getYPR();
+  updateAttitude();
   // --
   //deal with accidents
-  if (fabs(ypr[YPR_YAW]) > LARGE_PITCH || fabs(ypr[YPR_ROLL]) > LARGE_ROLL) {//wait until stable
+
+  // TODO: This logic makes no sense... a bunch of redundant checks and delays... 
+  //       Needs a serious tidy up.
+  if (fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD ) {//wait until stable
     if (!hold){
       for (byte w = 0; w < 50; w++) {
         delay(10);
       }
     }
-    if (fabs(ypr[YPR_PITCH]) > LARGE_PITCH || fabs(ypr[YPR_ROLL]) > LARGE_ROLL) {//check again
+    if (fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD ) {//check again
       if (!hold) {
         enableMotion = true;
-        if (fabs(ypr[YPR_ROLL]) > LARGE_ROLL) {
+        if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
           newCmd = Command::Command(Command::Simple::Recover);
         }
       }
@@ -209,16 +158,33 @@ static void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
   }
   // TODO: Note sure about this logic for small angle filtering
   //calculate deviation
-  const float levelTolerance[2] = {ROLL_LEVEL_TOLERANCE, PITCH_LEVEL_TOLERANCE}; //the body is still considered as level, no angle adjustment
-  for (byte i = 0; i < 2; i++) {
-    RollPitchDeviation[i] = ypr[2 - i] - motion.expectedRollPitch[i]; //all in degrees
-    RollPitchDeviation[i] = sign(ypr[2 - i]) * max(fabs(RollPitchDeviation[i]) - levelTolerance[i], 0);//filter out small angles
-  }
+  // const float levelTolerance[2] = {ROLL_LEVEL_TOLERANCE, PITCH_LEVEL_TOLERANCE}; //the body is still considered as level, no angle adjustment
+  // for (byte i = 0; i < 2; i++) {
+  //   RollPitchDeviation[i] = ypr[2 - i] - motion.expectedRollPitch[i]; //all in degrees
+  //   RollPitchDeviation[i] = sign(ypr[2 - i]) * max(fabs(RollPitchDeviation[i]) - levelTolerance[i], 0);//filter out small angles
+  // }
 }
 
 static void initI2C() {
   Wire.begin();
   Wire.setClock(400000);
+}
+
+static void initIMU() {
+  mpu.initialize();
+  PTL(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+
+  // load and configure the DMP
+  delay(500);
+  // supply your own gyro offsets here, scaled for min sensitivity
+  for (byte i = 0; i < 4; i++) {
+    PT(EEPROMReadInt(MPUCALIB + 4 + i * 2));
+    PTF(" ");
+  }
+  mpu.setZAccelOffset(EEPROMReadInt(MPUCALIB + 4));
+  mpu.setXGyroOffset(EEPROMReadInt(MPUCALIB + 6));
+  mpu.setYGyroOffset(EEPROMReadInt(MPUCALIB + 8));
+  mpu.setZGyroOffset(EEPROMReadInt(MPUCALIB + 10));
 }
 
 void Bittleet::setup() {
@@ -233,69 +199,9 @@ void Bittleet::setup() {
   PTLF("Bittle");
   PTLF("Initialize I2C");
   initI2C();
-  PTLF("Connect MPU6050");
-  mpu.initialize();
-  //do
-  {
-    delay(500);
-    // verify connection
-    PTLF("Test connection");
-    PTL(mpu.testConnection() ? F("MPU successful") : F("MPU failed"));//sometimes it shows "failed" but is ok to bypass.
-  } //while (!mpu.testConnection());
+  initIMU();
 
-  // load and configure the DMP
-  do {
-    PTLF("Initialize DMP"); // Digital Motion Processor
-    devStatus = mpu.dmpInitialize();
-    delay(500);
-    // supply your own gyro offsets here, scaled for min sensitivity
-
-    for (byte i = 0; i < 4; i++) {
-      PT(EEPROMReadInt(MPUCALIB + 4 + i * 2));
-      PTF(" ");
-    }
-    PTL();
-    mpu.setZAccelOffset(EEPROMReadInt(MPUCALIB + 4));
-    mpu.setXGyroOffset(EEPROMReadInt(MPUCALIB + 6));
-    mpu.setYGyroOffset(EEPROMReadInt(MPUCALIB + 8));
-    mpu.setZGyroOffset(EEPROMReadInt(MPUCALIB + 10));
-    // make sure it worked (returns 0 if so)
-    if (devStatus == 0) {
-      // turn on the DMP, now that it's ready
-      PTLF("Enable DMP");
-      mpu.setDMPEnabled(true);
-
-      // enable Arduino interrupt detection
-      PTLF("Enable interrupt");
-      attachInterrupt(INTERRUPT, dmpDataReady, RISING);
-      mpuIntStatus = mpu.getIntStatus();
-
-      // set our DMP Ready flag so the main loop() function knows it's okay to use it
-      PTLF("DMP ready!");
-      //dmpReady = true;
-
-      // get expected DMP packet size for later comparison
-      packetSize = mpu.dmpGetFIFOPacketSize();
-    } else {
-      // ERROR!
-      // 1 = initial memory load failed
-      // 2 = DMP configuration updates failed
-      // (if it's going to break, usually the code will be 1)
-      PTLF("DMP failed (code ");
-      PT(devStatus);
-      PTLF(")");
-      PTL();
-    }
-  } while (devStatus);
-
-  //opening music
-  // playMelody(MELODY);
-
-  //IR
-  {
-    //PTLF("IR Receiver Button Decode");
-    irrecv.enableIRIn(); // Start the receiver
-  }
+  irrecv.enableIRIn(); // Start the receiver
 
   assignSkillAddressToOnboardEeprom();
   PTL();
@@ -370,14 +276,6 @@ void Bittleet::loop() {
       if (checkGyro) {
         if (!(timer % skipGyro)) {
           checkBodyMotion(enableMotion, newCmd);
-
-        }
-        else if (mpuInterrupt || fifoCount >= packetSize)
-        {
-          // reset interrupt flag and get INT_STATUS byte
-          mpuInterrupt = false;
-          mpuIntStatus = mpu.getIntStatus();
-          getFIFO();
         }
       }
     }
@@ -571,21 +469,22 @@ void Bittleet::loop() {
 
               if (motion.dutyAngles[18 + c * frameSize]) {
                 int triggerAxis = motion.dutyAngles[18 + c * frameSize];
-                int triggerAngle = motion.dutyAngles[19 + c * frameSize];
+                int triggerAngle = motion.dutyAngles[19 + c * frameSize] * M_DEG2RAD;
 
-                float currentYpr = ypr[abs(triggerAxis)];
-                float previousYpr = currentYpr;
+                float currentAngle = angleFromAxis(triggerAxis);
+                float previousAngle = currentAngle;
                 while (1) {
-                  getYPR();
-                  currentYpr = ypr[abs(triggerAxis)];
-                  PT(currentYpr);
+                  updateAttitude();
+                  currentAngle = angleFromAxis(triggerAxis);
+                  PT(currentAngle);
                   PTF("\t");
                   PTL(triggerAngle);
-                  if ((180 - fabs(currentYpr) > 2)  //skip the angle when the reading jumps from 180 to -180
-                      && (triggerAxis * currentYpr < triggerAxis * triggerAngle && triggerAxis * previousYpr > triggerAxis * triggerAngle )
-                     ) //the sign of triggerAxis will deterine whether the current angle should be larger or smaller than the trigger angle
+                  if ((M_PI - fabs(currentAngle) > 2.0)  //skip the angle when the reading jumps from 180 to -180
+                      && (triggerAxis * currentAngle < triggerAxis * triggerAngle && triggerAxis * previousAngle > triggerAxis * triggerAngle )) {
+                    //the sign of triggerAxis will deterine whether the current angle should be larger or smaller than the trigger angle
                     break;
-                  previousYpr = currentYpr;
+                  }
+                  previousAngle = currentAngle;
                 }
               }
               else

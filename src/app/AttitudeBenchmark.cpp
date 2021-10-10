@@ -51,16 +51,16 @@ void AttitudeBenchmark::loop() {
   Serial.print("\n");
   delay(1000);
   dt = micros();
-  Attitude::Angles angles = attitude.update(g);
+  attitude.update(g);
   dt = micros() - dt;
   Serial.print("dt (us): ");
   Serial.print(dt);
   Serial.print("\t");
   Serial.print("roll: ");
-  Serial.print(angles.roll);
+  Serial.print(attitude.roll());
   Serial.print("\t");
   Serial.print("pitch: ");
-  Serial.print(angles.pitch);
+  Serial.print(attitude.pitch());
   Serial.print("\n");
 
 }

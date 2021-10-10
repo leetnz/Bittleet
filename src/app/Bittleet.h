@@ -1,6 +1,6 @@
 //
 // Bittleet App
-// Operational firmware for Petoi's Bittle quadraped robot.
+// Operational firmware for Petoi's Bittle quadruped robot.
 //
 // Hoani Bryson (github.com/hoani)
 // Copyright (c) 2021 Leetware Limited.

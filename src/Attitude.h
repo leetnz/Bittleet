@@ -19,16 +19,16 @@ struct GravityMeasurement {
     int16_t x, y, z;
 };
 
-struct Angles {
-    float roll;
-    float pitch;
-};
-
 class Attitude {
 public:
     Attitude() = default;
 
-    Angles update(const GravityMeasurement& gravity);
+    void update(const GravityMeasurement& gravity);
+    float roll() { return _roll; }
+    float pitch() { return _pitch; }
+private:
+    float _roll = 0.0;
+    float _pitch = 0.0;
 };
 
 }
