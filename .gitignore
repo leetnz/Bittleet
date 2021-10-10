@@ -1,4 +1,4 @@
 bittleet_tests
 **/*.o
 obj
-.*
+.tracking*
