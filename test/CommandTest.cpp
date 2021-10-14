@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "Arduino.h"
-#include "Command.h"
+#include "command/Command.h"
 
 using namespace Command;
 

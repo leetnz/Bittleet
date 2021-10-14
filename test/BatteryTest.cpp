@@ -12,8 +12,8 @@
 
 #include "Arduino.h"
 
-#include "Battery.h"
-#include "Status.h"
+#include "state/Battery.h"
+#include "state/Status.h"
 
 using namespace Battery;
 

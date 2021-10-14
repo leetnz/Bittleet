@@ -11,7 +11,7 @@
 #define _BITTLEET_INFRARED_H_
 
 #include <Arduino.h>
-#include "Command.h"
+#include "../command/Command.h"
 
 
 namespace Infrared {

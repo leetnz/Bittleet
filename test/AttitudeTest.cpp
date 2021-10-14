@@ -13,9 +13,9 @@
 
 #include "Arduino.h"
 
-#include "Attitude.h"
+#include "state/Attitude.h"
 
-#include "trig.h"
+#include "math/trig.h"
 
 #define NOMINAL_G (16384)
 #define NOMINAL_G_2_AXES (11585)
@@ -215,7 +215,7 @@ TEST_CASE("Attitude::Reset", "[Attitude]" )
     attitude.reset();
     REQUIRE(0.0 == attitude.pitch());
     REQUIRE(0.0 == attitude.roll());
-    
+
     for (auto& step: steps) {
         REQUIRE(attitude.update(step.input));
         NEAR(step.expectedRoll, attitude.roll(), 1e-3f);

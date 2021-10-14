@@ -31,8 +31,7 @@
 #include "Bittleet.h"
 
 #include "../OpenCat.h"
-#include "../Command.h"
-#include "../Comms.h"
+#include "../command/Command.h"
 
 #include <I2Cdev.h>
 #include <MPU6050.h>
@@ -40,10 +39,12 @@
 
 #include <Adafruit_NeoPixel.h>
 
-#include "../Battery.h"
-#include "../Infrared.h"
+#include "../state/Battery.h"
 
-#include "../Attitude.h"
+#include "../ui/Comms.h"
+#include "../ui/Infrared.h"
+
+#include "../state/Attitude.h"
 
 static MPU6050 mpu;
 
@@ -82,9 +83,8 @@ static byte jointIdx = 0;
 
 static int8_t servoCalibs[DOF] = {};
 
-static int8_t tStep = 1; // TODO - this should be a motion flag
 
-static Attitude::Attitude attitude = Attitude::Attitude(1.0/32.0f);
+static Attitude::Attitude attitude = Attitude::Attitude(1.0/8.0f);
 #define AXIS_YAW (0)
 #define AXIS_PITCH (1)
 #define AXIS_ROLL (2)
@@ -117,7 +117,8 @@ static bool updateAttitude() {
   
 
 
-static void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
+static void checkBodyMotion(Command::Command& newCmd)  {
+  static uint8_t balanceRecover = 0;
   //if (!dmpReady) return;
   bool updated = updateAttitude();
   bool recovering = false;
@@ -125,23 +126,22 @@ static void checkBodyMotion(bool enableMotion, Command::Command& newCmd)  {
   //deal with accidents
 
   if (updated) {
-    if ((fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD )) {//wait until stable
+    if ((fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD )) {
       recovering = true;
-      if (!hold){
-        for (byte w = 0; w < 50; w++) {
-          delay(10);
-        }
+      if (balanceRecover != 0){
         if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
           newCmd = Command::Command(Command::Simple::Recover);
         }
       }
-      hold = 10;
-    } else if (hold) { // recover
+      balanceRecover = 10;
+    } else if (balanceRecover != 0) { // recover
       recovering = true;
-      hold--;
-      if (!hold) {
+      balanceRecover--;
+      if (balanceRecover == 0) {
         newCmd = lastCmd;
         lastCmd = Command::Command(Command::Simple::Balance);
+        attitude.reset();
+        updated = updateAttitude();
         meow();
       }
     }
@@ -250,22 +250,32 @@ void Bittleet::setup() {
   pixels.show(); 
 }
 
+#define UPDATE_PERIOD_US (10000)
 void Bittleet::loop() {
+  static uint32_t lastUpdateUs = micros();
   static Comms::SerialComms serialComms;
   static bool enableMotion = false;
-  static Command::Command newCmd;
   static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
+
+  uint32_t deltaUs = micros() - lastUpdateUs;
+  int32_t remainingUs = UPDATE_PERIOD_US - deltaUs;
+  if (remainingUs > 0) {
+    delayMicroseconds(remainingUs);
+  }
+  PTF("deltaT: ");
+  PTL(deltaUs);
+  lastUpdateUs += UPDATE_PERIOD_US;
+  
+
   int battAdcReading = analogRead(BATT);
   Status::Battery battState = Battery::state(battAdcReading);
-  if (battState.level == Status::BatteryLevel::Low) { //if battery voltage < threshold, it needs to be recharged
+  if (battState.level == Status::BatteryLevel::Low) { 
     PTLF("Low power!");
     beep(15, 50, 50, 3);
     delay(1500); // HOANI TODO: Should be disabling all servos here
   }
-  // HOANI TODO: Do something when no battery is detected
-
   else {
-    newCmd = Command::Command();
+    Command::Command newCmd = Command::Command();
 
     // input block
     {
@@ -282,11 +292,9 @@ void Bittleet::loop() {
     }
 
     // MPU block
-    {
-      if (checkGyro) {
-        if (!(timer % skipGyro)) {
-          checkBodyMotion(enableMotion, newCmd);
-        }
+    if (checkGyro) {
+      if (!(timer % skipGyro)) {
+        checkBodyMotion(newCmd);
       }
     }
 
@@ -312,20 +320,18 @@ void Bittleet::loop() {
           }
           case Command::Simple::GyroToggle: {
             if (!checkGyro) {
-              checkBodyMotion(enableMotion, newCmd);
+              checkBodyMotion(newCmd);
             }
             checkGyro = !checkGyro;
             enableMotion = true;
             break;
           }
           case Command::Simple::Pause: {
-            tStep = !tStep;
-            if (tStep) {
-              newCmd = Command::Command(); // resume last command.
-              enableMotion = true;
+            enableMotion = !enableMotion;
+            if (enableMotion) {
+              newCmd = Command::Command(); // resume last command. TODO - don't know if this works?
             } else {
               shutServos();
-              enableMotion = false;
             }
             break;
           }
@@ -443,7 +449,6 @@ void Bittleet::loop() {
             }
           } 
 
-          //motion.info();
           timer = 0;
           if ((newCmd != Command::Simple::Balance) && 
               (newCmd != Command::Simple::Lifted) && 
@@ -511,7 +516,6 @@ void Bittleet::loop() {
             for (byte a = 0; a < DOF; a++) {
               currentAdjust[a] = 0.0f;
             }
-            hold = 0;
           } else {
             transform( motion.dutyAngles, motion.angleDataRatio, 1, firstMotionJoint);
           }
@@ -529,12 +533,13 @@ void Bittleet::loop() {
       if (enableMotion) {
         if (jointIdx == DOF) {
             // timer = (timer + 1) % abs(motion.period);
-            timer += tStep;
+            timer++;
             if (timer == abs(motion.period)) {
               timer = 0;
             }
-            else if (timer == 255)
+            else if (timer == 255) {
               timer = abs(motion.period) - 1;
+            }
 
           jointIdx = 0;
 

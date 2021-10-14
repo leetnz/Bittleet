@@ -8,7 +8,7 @@
 //
 
 #include "AttitudeBenchmark.h"
-#include "../Attitude.h"
+#include "../state/Attitude.h"
 
 #include <I2Cdev.h>
 #include <MPU6050.h>
