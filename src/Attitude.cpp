@@ -37,10 +37,23 @@ bool Attitude::update(const GravityMeasurement& g) {
         measQuality = 1.0f;
     }
 
-    _roll = applyIIR(-(float)atan2(g.y, g.z), _roll, _filterCoeff * measQuality);
-    _pitch = applyIIR(-(float)atan2(g.x, g.z), _pitch, _filterCoeff * measQuality);
-
+    const float rollMeasurement = -(float)atan2(g.y, g.z);
+    const float pitchMeasurement = -(float)atan2(g.x, g.z);
+    if (_reset) {
+        _roll = rollMeasurement;
+        _pitch = pitchMeasurement;
+        _reset = false;
+    } else {
+        _roll = applyIIR(rollMeasurement, _roll, _filterCoeff * measQuality);
+        _pitch = applyIIR(pitchMeasurement, _pitch, _filterCoeff * measQuality);
+    }
     return true;
+}
+
+void Attitude::reset() {
+    _roll = 0.0;
+    _pitch = 0.0;
+    _reset = true;
 }
 
 }

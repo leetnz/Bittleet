@@ -114,6 +114,11 @@ TEST_CASE("Attitude::Update_IIR", "[Attitude]" )
             .filterCoefficient = 0.5,  
             .steps = {
                 {
+                    .input = Attitude::GravityMeasurement{0, 0, NOMINAL_G},
+                    .expectedRoll = 0.0,
+                    .expectedPitch = 0.0,
+                },
+                {
                     .input = Attitude::GravityMeasurement{NOMINAL_G_2_AXES, NOMINAL_G_2_AXES, 0},
                     .expectedRoll = -45.0 * M_DEG2RAD,
                     .expectedPitch = -45.0 * M_DEG2RAD,
@@ -129,6 +134,11 @@ TEST_CASE("Attitude::Update_IIR", "[Attitude]" )
             .name = "0.25 filtering",
             .filterCoefficient = 0.25,  
             .steps = {
+                {
+                    .input = Attitude::GravityMeasurement{0, 0, NOMINAL_G},
+                    .expectedRoll = 0.0,
+                    .expectedPitch = 0.0,
+                },
                 {
                     .input = Attitude::GravityMeasurement{NOMINAL_G_2_AXES, NOMINAL_G_2_AXES, 0},
                     .expectedRoll = -90.0 * 0.25 * M_DEG2RAD,
@@ -146,6 +156,22 @@ TEST_CASE("Attitude::Update_IIR", "[Attitude]" )
                 },
             }, 
         },
+        { 
+            .name = "No filter on first measurment",
+            .filterCoefficient = 0.25,  
+            .steps = {
+                {
+                    .input = Attitude::GravityMeasurement{NOMINAL_G_2_AXES, NOMINAL_G_2_AXES, 0},
+                    .expectedRoll = -90.0 * M_DEG2RAD,
+                    .expectedPitch = -90.0 * M_DEG2RAD,
+                },
+                {
+                    .input = Attitude::GravityMeasurement{0, 0, NOMINAL_G},
+                    .expectedRoll = -90.0 * M_DEG2RAD * 0.75,
+                    .expectedPitch = -90.0 * M_DEG2RAD * 0.75,
+                },
+            }, 
+        },
 
     };
 
@@ -158,6 +184,42 @@ TEST_CASE("Attitude::Update_IIR", "[Attitude]" )
                 NEAR(step.expectedPitch, attitude.pitch(), 1e-3f);
             }
         }
+    }
+}
+
+TEST_CASE("Attitude::Reset", "[Attitude]" ) 
+{
+    struct Step {
+       Attitude::GravityMeasurement input;
+       float expectedRoll;
+       float expectedPitch;
+    };
+
+    const std::vector<Step> steps = {
+        {
+            .input = Attitude::GravityMeasurement{NOMINAL_G_2_AXES, NOMINAL_G_2_AXES, 0},
+            .expectedRoll = -90.0 * M_DEG2RAD,
+            .expectedPitch = -90.0 * M_DEG2RAD,
+        },
+        {
+            .input = Attitude::GravityMeasurement{0, 0, NOMINAL_G},
+            .expectedRoll = -90.0 * 0.75 * M_DEG2RAD,
+            .expectedPitch = -90.0 * 0.75 * M_DEG2RAD,
+        },
+    };
+
+    Attitude::Attitude attitude = Attitude::Attitude(0.25);
+    for (auto& step: steps) {
+        REQUIRE(attitude.update(step.input));
+    }
+    attitude.reset();
+    REQUIRE(0.0 == attitude.pitch());
+    REQUIRE(0.0 == attitude.roll());
+    
+    for (auto& step: steps) {
+        REQUIRE(attitude.update(step.input));
+        NEAR(step.expectedRoll, attitude.roll(), 1e-3f);
+        NEAR(step.expectedPitch, attitude.pitch(), 1e-3f);
     }
 }
 
@@ -179,7 +241,7 @@ TEST_CASE("Attitude::Update_GravityFilter", "[Attitude]" )
         },
         { 
             .name = "Reject Too Low",
-            .input = Attitude::GravityMeasurement{NOMINAL_G_2_AXES / 2, NOMINAL_G_2_AXES / 2, 0},
+            .input = Attitude::GravityMeasurement{NOMINAL_G_2_AXES / 4, NOMINAL_G_2_AXES / 4, 0},
             .expectedRoll = 0.0,
             .expectedPitch = 0.0, 
         },

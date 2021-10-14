@@ -27,10 +27,12 @@ public:
     bool update(const GravityMeasurement& gravity);
     float roll() { return _roll; }
     float pitch() { return _pitch; }
+    void reset();
 private:
     float _roll = 0.0;
     float _pitch = 0.0;
     float _filterCoeff = 1.0; // 1.0 = no filtering, value should be between [0.0, 1.0]
+    bool _reset = true;
 };
 
 }
