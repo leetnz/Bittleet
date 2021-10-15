@@ -53,7 +53,6 @@ float postureOrWalkingFactor;
 float rollDeviation;
 float pitchDeviation;
 
-Motion motion;
 
 float pulsePerDegreeF(int i) {
   if (i >= DOF) {
@@ -238,14 +237,7 @@ void shutServos() {
 }
 
 
-void skillByCommand(Command::Command& cmd, byte angleDataRatio, float speedRatio, bool shutServoAfterward) {
-  motion.loadByCommand(cmd);
-  transform(motion.dutyAngles, angleDataRatio, speedRatio);
-  if (shutServoAfterward) {
-    shutServos();
-    cmd = Command::Command(Command::Simple::Rest);
-  }
-}
+
 
 
 //short tools

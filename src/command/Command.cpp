@@ -68,7 +68,7 @@ bool Command::operator==(const Command& other) const {
 }
 
 
-bool Command::get(Simple& cmd) {
+bool Command::get(Simple& cmd) const {
     if (_type == Type::Simple) {
         cmd = _simple;
         return true;
@@ -76,7 +76,7 @@ bool Command::get(Simple& cmd) {
     return false;
 }
 
-bool Command::get(Move& cmd) {
+bool Command::get(Move& cmd) const {
     if (_type == Type::Move) {
         cmd = _move;
         return true;
@@ -84,7 +84,7 @@ bool Command::get(Move& cmd) {
     return false;
 }
 
-bool Command::get(WithArgs& cmd) {
+bool Command::get(WithArgs& cmd) const {
     if (_type == Type::WithArgs) {
         cmd = _withArgs;
         return true;

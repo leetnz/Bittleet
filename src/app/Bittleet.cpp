@@ -82,6 +82,9 @@ static byte jointIdx = 0;
 
 static int8_t servoCalibs[DOF] = {};
 
+static Motion motion;
+
+
 
 static Attitude::Attitude attitude = Attitude::Attitude(1.0/8.0f);
 #define AXIS_YAW (0)
@@ -101,6 +104,16 @@ static float angleFromAxis(int axis) {
     }
   }
 }
+
+static void skillByCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true) {
+  motion.loadByCommand(cmd);
+  transform(motion.dutyAngles, angleDataRatio, speedRatio);
+  if (shutServoAfterward) {
+    shutServos();
+    cmd = Command::Command(Command::Simple::Rest);
+  }
+}
+
 
 
 

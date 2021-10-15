@@ -187,8 +187,6 @@ extern int16_t currentAng[DOF];
 extern AdjustAngle currentAdjust[DOF];
 extern int calibratedDuty0[DOF];
 
-class Motion;
-extern Motion motion;
 
 extern float rollDeviation;
 extern float pitchDeviation;
@@ -537,8 +535,6 @@ template <typename T> void transform( T * target, byte angleDataRatio = 1, float
   }
 }
 
-
-void skillByCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true);
 
 
 

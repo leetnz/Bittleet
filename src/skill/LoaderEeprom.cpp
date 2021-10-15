@@ -5,12 +5,27 @@
 #include <Adafruit_PWMServoDriver.h>
 #include <EEPROM.h>
 
+#define PT(s) Serial.print(s)  //makes life easier
+#define PTL(s) Serial.println(s)
+#define PTF(s) Serial.print(F(s))//trade flash memory for dynamic memory with F() function
+#define PTLF(s) Serial.println(F(s))
+
 #define DEVICE_ADDRESS 0x54
 #define WIRE_BUFFER 30 //Arduino wire allows 32 byte buffer, with 2 byte for address.
 
 #define NUM_SKILLS 31
 
 #define LOOKUP_NAME_START_ADDR 200  // Onchip skills name start address.
+
+
+
+//This function will read a 2 byte integer from the eeprom at the specified address and address + 1
+static int EEPROMReadInt(int p_address)
+{
+  byte lowByte = EEPROM.read(p_address);
+  byte highByte = EEPROM.read(p_address + 1);
+  return ((lowByte << 0) & 0xFF) + ((highByte << 8) & 0xFF00);
+}
 
   
 static int lookupAddressByName(const char* skillName) {
@@ -86,6 +101,10 @@ static void loadFromEeprom(unsigned int &eeAddress, Skill& skill) {
 
     int len = skill.frames * frameSize;
 
+    if (skill.spec == NULL) {
+        delete[] skill.spec;
+    }
+
     skill.spec = new char[len];
 
     int readFromEE = 0;
@@ -94,7 +113,7 @@ static void loadFromEeprom(unsigned int &eeAddress, Skill& skill) {
        Wire.requestFrom(DEVICE_ADDRESS, min(WIRE_BUFFER, len));
         readToWire = 0;
         do {
-            if (Wire.available()) dutyAngles[readFromEE++] = Wire.read();
+            if (Wire.available()) skill.spec[readFromEE++] = Wire.read();
         } while (--len > 0 && ++readToWire < WIRE_BUFFER);
     }
 }
@@ -102,9 +121,9 @@ static void loadFromEeprom(unsigned int &eeAddress, Skill& skill) {
 static void loadDataByOnboardEepromAddress(int onBoardEepromAddress, Skill& skill) {
     char skillType = EEPROM.read(onBoardEepromAddress);
     unsigned int dataArrayAddress = EEPROMReadInt(onBoardEepromAddress + 1);
-    delete[] dutyAngles;
+    
     if (skillType == 'I') { //copy instinct data array from external i2c eeprom
-        loadFromEeprom(dataArrayAddress);
+        loadFromEeprom(dataArrayAddress, skill);
     }
     else                    //copy newbility data array from progmem
     {
