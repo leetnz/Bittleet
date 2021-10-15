@@ -7,7 +7,7 @@ TEST_OBJ = $(patsubst test/%.cpp,obj/test/%.o,$(TEST_SRC))
 
 FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
 
-APP_SRC = $(filter-out $(wildcard src/app/**), $(filter-out src/OpenCat.cpp, $(wildcard src/**/*.cpp)))
+APP_SRC = $(filter-out $(wildcard src/app/**) src/skill/LoaderEeprom.cpp src/OpenCat.cpp, $(wildcard src/**/*.cpp))
 APP_OBJ = $(patsubst src/%.cpp,obj/src/%.o,$(APP_SRC))
 
 .PHONY: all

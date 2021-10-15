@@ -53,11 +53,10 @@ static MPU6050 mpu;
 #define PIXEL_COUNT 7
 Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
 
+#define BAUD_RATE 115200
 
 
-// ================================================================
-// ===               INTERRUPT DETECTION ROUTINE                ===
-// ================================================================
+
 
 // https://brainy-bits.com/blogs/tutorials/ir-remote-arduino
 #include <IRremote.h>

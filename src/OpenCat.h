@@ -108,8 +108,6 @@ void meow(int repeat = 0, int pause = 200, int startF = 50,  int endF = 200, int
 
 #define BATT A7
 #define DEVICE_ADDRESS 0x54
-#define BAUD_RATE 115200
-//define PIXEL_PIN 10
 
 
 #ifdef PIXEL_PIN
@@ -121,7 +119,6 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 #define HEAD
 #define LL_LEG
-#define WALKING_DOF 8
 #define P1S
 //#define MPU_YAW180
 
