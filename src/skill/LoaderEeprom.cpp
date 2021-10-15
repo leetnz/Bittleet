@@ -17,7 +17,7 @@
 
 #define LOOKUP_NAME_START_ADDR 200  // Onchip skills name start address.
 
-
+namespace Skill {
 
 //This function will read a 2 byte integer from the eeprom at the specified address and address + 1
 static int EEPROMReadInt(int p_address)
@@ -101,7 +101,7 @@ static void loadFromEeprom(unsigned int &eeAddress, Skill& skill) {
 
     int len = skill.frames * frameSize;
 
-    if (skill.spec == NULL) {
+    if (skill.spec != NULL) {
         delete[] skill.spec;
     }
 

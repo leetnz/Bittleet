@@ -41,6 +41,9 @@ make test
 - [ ] Move IMU specific functionality out of `Bittle.ino`
 - [ ] Bittle DOF is 9 under normal circumstances. Consider making DOF matrixes only 9 
     - will reclaim 10 bytes of RAM per servo, so 70 bytes doing this.
+- [ ] Motion behavior reads from internal EEPROM for calibration
+    - [ ] Need to benchmark EEPROM reads
+    - [ ] Ideally, we just store these params in RAM/ROM
 
 ## Wishlist
 - [ ] Add arduino integration to github actions

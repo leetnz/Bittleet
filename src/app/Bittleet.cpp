@@ -46,6 +46,9 @@
 
 #include "../state/Attitude.h"
 
+#include "../skill/Skill.h"
+#include "../skill/LoaderEeprom.h"
+
 static MPU6050 mpu;
 
 // NeoPixel integration
@@ -76,13 +79,15 @@ static int8_t offsetLR = 0;
 static bool checkGyro = true;
 static int8_t skipGyro = 2;
 
-static uint8_t timer = 0;
+static uint8_t frameIndex = 0;
 static byte firstMotionJoint;
 static byte jointIdx = 0;
 
 static int8_t servoCalibs[DOF] = {};
 
-static Motion motion;
+
+static Skill::Skill skill;
+static Skill::Loader* loader;
 
 
 
@@ -105,14 +110,18 @@ static float angleFromAxis(int axis) {
   }
 }
 
-static void skillByCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true) {
-  motion.loadByCommand(cmd);
-  transform(motion.dutyAngles, angleDataRatio, speedRatio);
+static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true) {
+  loader->load(cmd, skill);
+  if (skill.type != Skill::Type::Posture) {
+    return;
+  }
+  transform(skill.spec, angleDataRatio, speedRatio);
   if (shutServoAfterward) {
     shutServos();
     cmd = Command::Command(Command::Simple::Rest);
   }
 }
+
 
 
 
@@ -167,8 +176,8 @@ static void checkBodyMotion(Command::Command& newCmd)  {
     float pitchDev = 0.0;
     // When we don't have a valid update, our filter will regress to zero deviation.
     if (updated) {
-        rollDev = attitude.roll() * M_RAD2DEG - motion.expectedRollPitch[0];
-        pitchDev = attitude.pitch() * M_RAD2DEG - motion.expectedRollPitch[1];
+        rollDev = attitude.roll() * M_RAD2DEG - skill.nominalRoll;
+        pitchDev = attitude.pitch() * M_RAD2DEG - skill.nominalPitch;
     }
   
     // IIR Hack to attempt to improve the compensation
@@ -183,6 +192,45 @@ static void checkBodyMotion(Command::Command& newCmd)  {
     }
   }
 }
+
+static void doBehaviorSkill(Skill::Skill& skill) {
+  int8_t repeat = skill.loopSpec.count - 1;
+  int8_t frameSize = 20;
+  const int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
+  for (uint8_t c = 0; c < skill.frames; c++) { //the last two in the row are transition speed and delay
+    transform(skill.spec + c * frameSize, angleMultiplier, skill.spec[16 + c * frameSize] / 4.0);
+
+    if (skill.spec[18 + c * frameSize]) {
+      int triggerAxis = skill.spec[18 + c * frameSize];
+      float triggerAngle = (float)skill.spec[19 + c * frameSize] * M_DEG2RAD;
+
+      float currentAngle = angleFromAxis(triggerAxis);
+      float previousAngle = currentAngle;
+      while (1) {
+        updateAttitude();
+        currentAngle = angleFromAxis(triggerAxis);
+        PT(currentAngle);
+        PTF("\t");
+        PTL(triggerAngle);
+        if ((M_PI - fabs(currentAngle) > 2.0)  //skip the angle when the reading jumps from 180 to -180
+            && (triggerAxis * currentAngle < triggerAxis * triggerAngle && triggerAxis * previousAngle > triggerAxis * triggerAngle )) {
+          //the sign of triggerAxis will deterine whether the current angle should be larger or smaller than the trigger angle
+          break;
+        }
+        previousAngle = currentAngle;
+      }
+    }
+    else
+    {
+      delay(skill.spec[17 + c * frameSize] * 50);
+    }
+    if (c == skill.loopSpec.finalRow && repeat > 0) {
+      c = skill.loopSpec.firstRow - 1;
+      repeat--;
+    }
+  }
+}
+
 
 static void initI2C() {
   Wire.begin();
@@ -210,6 +258,7 @@ static void initIMU() {
 }
 
 void Bittleet::setup() {
+  loader = new Skill::LoaderEeprom();
   pinMode(BUZZER, OUTPUT);  
 
   Serial.begin(BAUD_RATE);
@@ -236,16 +285,14 @@ void Bittleet::setup() {
     delay(200);
 
     //meow();
-    lastCmd = Command::Command(Command::Simple::Rest);
-    motion.loadByCommand(lastCmd);
     for (int8_t i = DOF - 1; i >= 0; i--) {
+      // TODO: Investigate loading middleShift, pulsePerDeg and rotationDirection into RAM/ROM
       servoRange[i] = servoAngleRange(i);
       servoCalibs[i] = servoCalib(i);
       calibratedDuty0[i] =  SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegreeF(i)  * rotationDirection(i) ;
-      //PTL(SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegreeF(i) * rotationDirection(i) );
-      calibratedPWM(i, motion.dutyAngles[i]);
-      delay(20);
     }
+    lastCmd = Command::Command(Command::Simple::Rest);
+    doPostureCommand(lastCmd);
     shutServos();
   }
   beep(30);
@@ -305,7 +352,7 @@ void Bittleet::loop() {
 
     // MPU block
     if (checkGyro) {
-      if (!(timer % skipGyro)) {
+      if (!(frameIndex % skipGyro)) {
         checkBodyMotion(newCmd);
       }
     }
@@ -316,7 +363,7 @@ void Bittleet::loop() {
         // TODO: Should add an error beep type
       } else {
         enableMotion = true;
-        motion.loadByCommand(newCmd);
+        loader->load(newCmd, skill);
       }
     } else if (newCmd.type() == Command::Type::Simple) {
       Command::Simple cmd;
@@ -326,7 +373,7 @@ void Bittleet::loop() {
         switch(cmd) {
           case Command::Simple::Rest: {
             lastCmd = newCmd;
-            skillByCommand(lastCmd);
+            doPostureCommand(lastCmd);
             enableMotion = false;
             break;
           }
@@ -380,8 +427,8 @@ void Bittleet::loop() {
             //yield();
             if (lastCmd != newCmd) { //first time entering the calibration function
               lastCmd = newCmd;
-              motion.loadByCommand(newCmd);
-              transform(motion.dutyAngles);
+              loader->load(newCmd, skill);
+              transform(skill.spec);
               checkGyro = false;
             }
             if (cmd.len == 2) {
@@ -395,7 +442,7 @@ void Bittleet::loop() {
                 angle = servoCalibs[index] + angle + 1000;
               }
               servoCalibs[index] = angle;
-              int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + motion.dutyAngles[index]) * pulsePerDegreeF(index) * rotationDirection(index);
+              int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + skill.spec[index]) * pulsePerDegreeF(index) * rotationDirection(index);
               pwm.setPWM(pin(index), 0,  duty);
             }
             break;
@@ -404,6 +451,7 @@ void Bittleet::loop() {
             const float angleInterval = 0.2;
             int angleStep = 0;
             const int16_t joints = cmd.len/2;
+            skill.type = Skill::Type::Posture;
             for (int16_t i = 0; i < joints; i++) {
               int16_t index = cmd.args[0];
               int16_t angle = cmd.args[1];
@@ -415,7 +463,8 @@ void Bittleet::loop() {
                 int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + currentAng[index] + a * angleInterval * angleStep / abs(angleStep)) * pulsePerDegreeF(index) * rotationDirection(index);
                 pwm.setPWM(pin(index), 0,  duty);
               }
-              currentAng[index] = motion.dutyAngles[index] = angle;
+              skill.spec[index] = angle;
+              currentAng[index] = angle;
             }
             break;
           } 
@@ -445,98 +494,49 @@ void Bittleet::loop() {
 
     if (newCmd != Command::Command()) {
       beep(8);
+    }
 
-      //check above
-      if (newCmd != lastCmd) {
-          motion.loadByCommand(newCmd);
+    if ((newCmd != Command::Command()) && (newCmd != lastCmd)) {
+      loader->load(newCmd, skill);
 
-          offsetLR = 0;
-          if (newCmd.type() == Command::Type::Move) {
-            if (newCmd.get(move)) {
-              if (move.direction == Command::Direction::Left) {
-                offsetLR = 15;
-              } else if (move.direction == Command::Direction::Right) {
-                offsetLR = -15;
-              }
-            }
-          } 
-
-          timer = 0;
-          if ((newCmd != Command::Simple::Balance) && 
-              (newCmd != Command::Simple::Lifted) && 
-              (newCmd != Command::Simple::Dropped)) {
-            lastCmd = newCmd;
+      offsetLR = 0;
+      if (newCmd.type() == Command::Type::Move) {
+        if (newCmd.get(move)) {
+          if (move.direction == Command::Direction::Left) {
+            offsetLR = 15;
+          } else if (move.direction == Command::Direction::Right) {
+            offsetLR = -15;
           }
-          // Xconfig = strcmp(newCmd, "wkX") ? false : true;
+        }
+      } 
 
-          postureOrWalkingFactor = (motion.period == 1 ? 1 : POSTURE_WALKING_FACTOR);
-          // if posture, start jointIdx from 0
-          // if gait, walking DOF = 8, start jointIdx from 8
-          //          walking DOF = 12, start jointIdx from 4
-          firstMotionJoint = (motion.period <= 1) ? 0 : DOF - WALKING_DOF;
-          //          if (Xconfig) { //for smooth transition
-          //            int *targetAngle;
-          //            targetAngle = new int [WALKING_DOF];
-          //            for (byte i = 0; i < WALKING_DOF; i++)
-          //              targetAngle[i] = motion.dutyAngles[i];
-          //            targetAngle[WALKING_DOF - 6] = motion.dutyAngles[WALKING_DOF - 2] -5;
-          //            targetAngle[WALKING_DOF - 5] = motion.dutyAngles[WALKING_DOF - 1] -5;
-          //            targetAngle[WALKING_DOF - 2] = motion.dutyAngles[WALKING_DOF - 2] + 180;
-          //            targetAngle[WALKING_DOF - 1] = motion.dutyAngles[WALKING_DOF - 1] + 180;
-          //            transform( targetAngle,  1,2, firstMotionJoint);
-          //            delete [] targetAngle;
-          //          }
-          //          else
+      frameIndex = 0;
+      if ((newCmd != Command::Simple::Balance) && 
+          (newCmd != Command::Simple::Lifted) && 
+          (newCmd != Command::Simple::Dropped)) {
+        lastCmd = newCmd;
+      }
 
-          if (motion.period < 1) {
-            int8_t repeat = motion.loopCycle[2] - 1;
-            byte frameSize = 20;
-            for (byte c = 0; c < abs(motion.period); c++) { //the last two in the row are transition speed and delay
-              transform(motion.dutyAngles + c * frameSize, motion.angleDataRatio, motion.dutyAngles[16 + c * frameSize] / 4.0);
+      postureOrWalkingFactor = (skill.type == Skill::Type::Posture) ? 1 : POSTURE_WALKING_FACTOR;
+      firstMotionJoint = (skill.type == Skill::Type::Gait) ? DOF - WALKING_DOF : 0;
 
-              if (motion.dutyAngles[18 + c * frameSize]) {
-                int triggerAxis = motion.dutyAngles[18 + c * frameSize];
-                float triggerAngle = (float)motion.dutyAngles[19 + c * frameSize] * M_DEG2RAD;
+      if (skill.type == Skill::Type::Behaviour) {
+        doBehaviorSkill(skill);
+        lastCmd = Command::Command(Command::Simple::Balance);
+        doPostureCommand(lastCmd, 1, 2, false);
+        for (byte a = 0; a < DOF; a++) {
+          currentAdjust[a] = 0.0f;
+        }
+      } else {
+        int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
+        transform( skill.spec, angleMultiplier, 1, firstMotionJoint);
+      }
 
-                float currentAngle = angleFromAxis(triggerAxis);
-                float previousAngle = currentAngle;
-                while (1) {
-                  updateAttitude();
-                  currentAngle = angleFromAxis(triggerAxis);
-                  PT(currentAngle);
-                  PTF("\t");
-                  PTL(triggerAngle);
-                  if ((M_PI - fabs(currentAngle) > 2.0)  //skip the angle when the reading jumps from 180 to -180
-                      && (triggerAxis * currentAngle < triggerAxis * triggerAngle && triggerAxis * previousAngle > triggerAxis * triggerAngle )) {
-                    //the sign of triggerAxis will deterine whether the current angle should be larger or smaller than the trigger angle
-                    break;
-                  }
-                  previousAngle = currentAngle;
-                }
-              }
-              else
-              {
-                delay(motion.dutyAngles[17 + c * frameSize] * 50);
-              }
-              if (c == motion.loopCycle[1] && repeat > 0) {
-                c = motion.loopCycle[0] - 1;
-                repeat--;
-              }
-            }
-            lastCmd = Command::Command(Command::Simple::Balance);
-            skillByCommand(lastCmd, 1, 2, false);
-            for (byte a = 0; a < DOF; a++) {
-              currentAdjust[a] = 0.0f;
-            }
-          } else {
-            transform( motion.dutyAngles, motion.angleDataRatio, 1, firstMotionJoint);
-          }
-          jointIdx = 3;//DOF; to skip the large adjustment caused by MPU overflow. joint 3 is not used.
-          if (newCmd == Command::Simple::Rest) {
-            shutServos();
-            enableMotion = false;
-            lastCmd = newCmd;
-          }
+      jointIdx = 3;//DOF; to skip the large adjustment caused by MPU overflow. joint 3 is not used.
+      if (newCmd == Command::Simple::Rest) {
+        shutServos();
+        enableMotion = false;
+        lastCmd = newCmd;
       }
     }
 
@@ -544,32 +544,28 @@ void Bittleet::loop() {
     {
       if (enableMotion) {
         if (jointIdx == DOF) {
-            // timer = (timer + 1) % abs(motion.period);
-            timer++;
-            if (timer == abs(motion.period)) {
-              timer = 0;
+            frameIndex++;
+            if (frameIndex >= skill.frames) {
+              frameIndex = 0;
             }
-            else if (timer == 255) {
-              timer = abs(motion.period) - 1;
-            }
-
-          jointIdx = 0;
-
+            jointIdx = 0;
         }
+
         if (jointIdx == 1) {
-          jointIdx = DOF - WALKING_DOF;
+          jointIdx = firstMotionJoint;
         }
-        if (jointIdx < firstMotionJoint && abs(motion.period) > 1) {
+        if ((jointIdx < firstMotionJoint) && (skill.frames > 1)) {
           calibratedPWM(jointIdx, (jointIdx != 1 ? offsetLR : 0) //look left or right
-                        + 10 * sin (timer * (jointIdx + 2) * M_PI / abs(motion.period)) //look around
+                        + 10 * sin (frameIndex * (jointIdx + 2) * M_PI / skill.frames) //look around
                         + (checkGyro ? adjust(jointIdx) : 0)
                        );
         }
         else if (jointIdx >= firstMotionJoint) {
-          int dutyIdx = timer * WALKING_DOF + jointIdx - firstMotionJoint;
-          calibratedPWM(jointIdx, motion.dutyAngles[dutyIdx]*motion.angleDataRatio//+ ((Xconfig && (jointIdx == 14 || jointIdx == 15)) ? 180 : 0)
+          int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
+          int dutyIdx = frameIndex * WALKING_DOF + (jointIdx - firstMotionJoint);
+          calibratedPWM(jointIdx, skill.spec[dutyIdx]*angleMultiplier
                         + (checkGyro ?
-                           (!(timer % skipGyro)  ?
+                           (!(frameIndex % skipGyro)  ?
                             adjust(jointIdx)
                             : currentAdjust[jointIdx].toF32())
                            : 0)
@@ -578,8 +574,9 @@ void Bittleet::loop() {
         }
         jointIdx++;
       }
-      else
-        timer = 0;
+      else {
+        frameIndex = 0;
+      }
     }
   }
 }

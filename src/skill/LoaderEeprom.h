@@ -13,4 +13,6 @@ class LoaderEeprom : public Loader {
     void load(const Command::Command& command, Skill& skill);  
 };
 
+}
+
 #endif // _BITTLEET_SKILL_LOADER_EEPROM_H_
