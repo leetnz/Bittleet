@@ -19,13 +19,6 @@ make test
 
 * [Bittleet Serial Protocol](https://github.com/leetnz/Bittleet/wiki/Bittleet-Communication-Protocol)
 
-# feature/rollpitch branch
-
-- [ ] Add a scheduler - Bittle should not be operating at an arbitrary update rate - it should be updated at a known frequency
-- [ ] Update multiple joints in sync - this seems like an obvious win for update rates.
-- [ ] Address non-detection of being upside down, this occasionally occurs in recovery
-- [ ] Look for ways of marking stale attitude state - potentially pass a time in the update function?
-
 
 # TODO
 
@@ -34,10 +27,6 @@ make test
 - [ ] Make Skill commands their own Command category - will consume a little extra RAM
 - [ ] Make serial output a `StatusReporter`
     - [ ] Add Command Skills as a type of status report
-- [ ] Move EEPROM specific functionality out of OpenCat/Bittle.ino
-    - [ ] Create an interface `SkillLoader` and structure `Skill` (this becomes effectively the motion data type)
-    - [ ] Create `EepromConfig` which implements `SkillLoader`
-    - [ ] Create `ProgmemSkillLoader` which implements `SkillLoader`
 - [ ] Move IMU specific functionality out of `Bittle.ino`
 - [ ] Bittle DOF is 9 under normal circumstances. Consider making DOF matrixes only 9 
     - will reclaim 10 bytes of RAM per servo, so 70 bytes doing this.

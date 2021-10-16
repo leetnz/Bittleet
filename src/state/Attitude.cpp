@@ -28,7 +28,7 @@ static float applyIIR(float xCurrent, float yLast, float coeff) {
 bool Attitude::update(const GravityMeasurement& g) {
     const int32_t g2 = ((int32_t)g.x * (int32_t)g.x) + ((int32_t)g.y * (int32_t)g.y) + ((int32_t)g.z * (int32_t)g.z);
     int32_t diff2 = NOMINAL_G2 - g2;
-    diff2 = diff2 < 0 ? -diff2 : diff2;
+    diff2 = (diff2 < 0) ? -diff2 : diff2;
     double  measQuality = 1.25 - QUALITY_COEFF * ((double)diff2 / (double)NOMINAL_G2);
     if (measQuality < 0.0) {
         return false; // Measurement is out of bounds - reject it!

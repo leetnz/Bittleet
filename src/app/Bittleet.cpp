@@ -137,11 +137,8 @@ static bool updateAttitude() {
 
 static void checkBodyMotion(Command::Command& newCmd)  {
   static uint8_t balanceRecover = 0;
-  //if (!dmpReady) return;
   bool updated = updateAttitude();
   bool recovering = false;
-  // --
-  //deal with accidents
 
   if (updated) {
     if ((fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD )) {
@@ -161,6 +158,7 @@ static void checkBodyMotion(Command::Command& newCmd)  {
         attitude.reset();
         updated = updateAttitude();
         meow();
+        recovering = false;
       }
     }
   }
@@ -542,38 +540,58 @@ void Bittleet::loop() {
 
     //motion block
     {
-      if ((enableMotion) && (skill.type == Skill::Type::Gait)) {
-        if (frameIndex >= skill.frames) {
+      if (enableMotion) {
+        if (skill.type == Skill::Type::Gait) {
+          if (frameIndex >= skill.frames) {
+            frameIndex = 0;
+          }
+
+          for (int i = 0; i<DOF; i++) {
+            if (i == 0) {
+              if (skill.frames > 1) {
+                calibratedPWM(i, offsetLR //look left or right
+                            + 10 * sin (frameIndex * (2) * M_PI / skill.frames) //look around
+                          );
+              }
+            } else {
+              if (i == 1) {
+                i = firstMotionJoint;
+              }
+            
+              int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
+              int dutyIdx = frameIndex * WALKING_DOF + (i - firstMotionJoint);
+              calibratedPWM(i, skill.spec[dutyIdx]*angleMultiplier
+                            + (checkGyro ?
+                              (!(frameIndex % skipGyro)  ?
+                                adjust(i)
+                                : currentAdjust[i].toF32())
+                              : 0)
+                          );
+      
+            }
+          }
+          frameIndex++;
+        } else {
           frameIndex = 0;
         }
-
+      } else if (skill.type == Skill::Type::Posture) {
         for (int i = 0; i<DOF; i++) {
+          if (i == 1) {
+            i = DOF - WALKING_DOF; // Dirty hack here... TODO: Clean up
+          }
           if (i == 0) {
-            if (skill.frames > 1) {
-              calibratedPWM(i, offsetLR //look left or right
-                          + 10 * sin (frameIndex * (2) * M_PI / skill.frames) //look around
-                        );
-            }
+            calibratedPWM(i, rollDeviation);
           } else {
-            if (i == 1) {
-              i = firstMotionJoint;
-            }
-          
             int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
-            int dutyIdx = frameIndex * WALKING_DOF + (i - firstMotionJoint);
-            calibratedPWM(i, skill.spec[dutyIdx]*angleMultiplier
+            calibratedPWM(i, skill.spec[i]*angleMultiplier
                           + (checkGyro ?
                             (!(frameIndex % skipGyro)  ?
                               adjust(i)
                               : currentAdjust[i].toF32())
                             : 0)
                         );
-    
           }
         }
-        frameIndex++;
-      } else {
-        frameIndex = 0;
       }
     }
   }
