@@ -485,7 +485,7 @@ float adjust(byte i);
 
 void saveCalib(int8_t *var);
 
-void calibratedPWM(byte i, float angle, float speedRatio = 0);
+void calibratedPWM(byte i, float angle);
 
 void allCalibratedPWM(char * dutyAng, byte offset = 0);
 

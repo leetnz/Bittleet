@@ -19,6 +19,8 @@
 
 #define F(s) (s)
 
+#define min(a,b) std::min(a,b)
+
 typedef uint8_t byte;
 typedef std::string String;
 

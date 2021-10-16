@@ -3,13 +3,14 @@
 
 #include <stdint.h>
 #include "../Bittle.h"
-#include "../Command/Command.h"
+#include "../command/Command.h"
 
 
 namespace Skill {
 
 enum class Type : uint8_t {
-    Posture = 0,
+    Invalid = 0,
+    Posture,
     Gait,
     Behaviour,
 };
@@ -21,13 +22,16 @@ struct LoopSpec {
 };
 
 struct Skill {
-    Type type = Type::Posture;
-    uint8_t frames = 0;
-    int8_t nominalRoll = 0;
-    int8_t nominalPitch = 0;
-    bool doubleAngles = false;
+    Type type;
+    uint8_t frames;
+    int8_t nominalRoll;
+    int8_t nominalPitch;
+    bool doubleAngles;
     LoopSpec loopSpec;
     char * spec; // Interpretation depends on type
+    uint16_t specLength;
+
+    static Skill Empty(); // This is the safe method of creating a skill.
 };
 
 class Loader {

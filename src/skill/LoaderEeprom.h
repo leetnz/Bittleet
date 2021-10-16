@@ -10,7 +10,11 @@ class LoaderEeprom : public Loader {
   public:
     LoaderEeprom() {};
 
-    void load(const Command::Command& command, Skill& skill);  
+    void load(const Command::Command& command, Skill& skill); 
+    
+  protected:
+    void _loadFromAddress(uint16_t address, Skill& skill);
+    int16_t _lookupAddressByName(const char* name);
 };
 
 }
