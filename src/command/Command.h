@@ -97,10 +97,10 @@ class Command {
         bool operator!=(const Command& other) const;
         bool operator==(const Command& other) const;
 
-        bool get(Simple& cmd);
-        bool get(Move& cmd);
-        bool get(WithArgs& cmd);
-        Type type() { return _type; }
+        bool get(Simple& cmd) const;
+        bool get(Move& cmd) const;
+        bool get(WithArgs& cmd) const;
+        Type type() const { return _type; }
 
     private:
         Type _type = Type::None;

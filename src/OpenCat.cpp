@@ -50,10 +50,9 @@ int16_t calibratedDuty0[DOF] = {};
 
 float postureOrWalkingFactor;
 
-float RollPitchDeviation[2];
-int8_t ramp = 1;
+float rollDeviation;
+float pitchDeviation;
 
-Motion motion;
 
 float pulsePerDegreeF(int i) {
   if (i >= DOF) {
@@ -189,21 +188,20 @@ void assignSkillAddressToOnboardEeprom() {
 }
 
 float adjust(byte i) {
-  float rollAdj, pitchAdj, adj;
+  float rollAdj;
   if (i == 1 || i > 3)  {//check idx = 1
     bool leftQ = (i - 1 ) % 4 > 1 ? true : false;
-    float leftRightFactor = 1;
-    if ((leftQ && ramp * RollPitchDeviation[0] > 0 )// operator * is higher than &&
-        || ( !leftQ && ramp * RollPitchDeviation[0] < 0))
-      leftRightFactor = LEFT_RIGHT_FACTOR * abs(ramp);
-    rollAdj = fabs(RollPitchDeviation[0]) * adaptiveCoefficient(i, 0) * leftRightFactor;
-
+    float leftRightFactor = 1.0;
+    if ((leftQ && rollDeviation > 0 ) || ( !leftQ && rollDeviation < 0)) {
+      leftRightFactor = LEFT_RIGHT_FACTOR;
+    }
+    rollAdj = fabs(rollDeviation) * adaptiveCoefficient(i, 0) * leftRightFactor;
   }
-  else
-    rollAdj = RollPitchDeviation[0] * adaptiveCoefficient(i, 0) ;
+  else {
+    rollAdj = rollDeviation * adaptiveCoefficient(i, 0);
+  }
   currentAdjust[i] = M_DEG2RAD * (
-                       (i > 3 ? postureOrWalkingFactor : 1) *
-                       rollAdj - ramp * adaptiveCoefficient(i, 1) * ((i % 4 < 2) ? ( RollPitchDeviation[1]) : RollPitchDeviation[1]));
+                       (i > 3 ? postureOrWalkingFactor : 1.0f) * rollAdj - adaptiveCoefficient(i, 1) * pitchDeviation);
   return currentAdjust[i].toF32();
 }
 
@@ -214,15 +212,11 @@ void saveCalib(int8_t *var) {
   }
 }
 
-void calibratedPWM(byte i, float angle, float speedRatio) {
-  int duty0 = calibratedDuty0[i] + currentAng[i] * pulsePerDegreeF(i) * rotationDirection(i);
+void calibratedPWM(byte i, float angle) {
   currentAng[i] = angle;
   int duty = calibratedDuty0[i] + angle * pulsePerDegreeF(i) * rotationDirection(i);
   duty = max(SERVOMIN , min(SERVOMAX , duty));
-  byte steps = byte(round(abs(duty - duty0) / 1.0/*degreeStep*/ / speedRatio)); //default speed is 1 degree per step
-  for (byte s = 0; s <= steps; s++) {
-    pwm.setPWM(pin(i), 0, duty + (steps == 0 ? 0 : (1 + cos(M_PI * s / steps)) / 2 * (duty0 - duty)));
-  }
+  pwm.setPWM(pin(i), 0, duty);
 }
 
 void allCalibratedPWM(char * dutyAng, byte offset) {
@@ -239,14 +233,7 @@ void shutServos() {
 }
 
 
-void skillByCommand(Command::Command& cmd, byte angleDataRatio, float speedRatio, bool shutServoAfterward) {
-  motion.loadByCommand(cmd);
-  transform(motion.dutyAngles, angleDataRatio, speedRatio);
-  if (shutServoAfterward) {
-    shutServos();
-    cmd = Command::Command(Command::Simple::Rest);
-  }
-}
+
 
 
 //short tools

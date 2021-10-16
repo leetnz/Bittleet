@@ -9,7 +9,7 @@
 
 
 #include "Comms.h"
-#include "Bittle.h"
+#include "../Bittle.h"
 
 //token list
 #define T_ABORT     'a'

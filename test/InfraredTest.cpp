@@ -12,8 +12,8 @@
 
 #include "Arduino.h"
 
-#include "Infrared.h"
-#include "Command.h"
+#include "ui/Infrared.h"
+#include "command/Command.h"
 
 using namespace Infrared;
 

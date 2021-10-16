@@ -12,8 +12,8 @@
 
 #include "Arduino.h"
 
-#include "Comms.h"
-#include "Command.h"
+#include "ui/Comms.h"
+#include "command/Command.h"
 #include "Bittle.h"
 
 using namespace Comms;

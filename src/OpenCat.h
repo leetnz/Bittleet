@@ -71,9 +71,9 @@
 //postures and movements trained by RongzhongLi
 #include<Arduino.h>
 #include "Bittle.h" //activate the correct header file according to your model
-#include "Command.h" //activate the correct header file according to your model
-#include "trig.h"
-#include "FixedPoint.h"
+#include "command/Command.h" //activate the correct header file according to your model
+#include "math/trig.h"
+#include "math/FixedPoint.h"
 
 #define NyBoard_V1_0
 
@@ -108,8 +108,6 @@ void meow(int repeat = 0, int pause = 200, int startF = 50,  int endF = 200, int
 
 #define BATT A7
 #define DEVICE_ADDRESS 0x54
-#define BAUD_RATE 115200
-//define PIXEL_PIN 10
 
 
 #ifdef PIXEL_PIN
@@ -121,7 +119,6 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 #define HEAD
 #define LL_LEG
-#define WALKING_DOF 8
 #define P1S
 //#define MPU_YAW180
 
@@ -190,8 +187,9 @@ extern int16_t currentAng[DOF];
 extern AdjustAngle currentAdjust[DOF];
 extern int calibratedDuty0[DOF];
 
-class Motion;
-extern Motion motion;
+
+extern float rollDeviation;
+extern float pitchDeviation;
 
 
 //--------------------
@@ -217,7 +215,6 @@ void copyDataFromPgmToI2cEeprom(unsigned int &eeAddress, unsigned int pgmAddress
 
 class Motion {
   public:
-    byte pins[DOF];           //the mapping between PCB pins and the joint indexes
     int8_t period;            //the period of a skill. 1 for posture, >1 for gait, <-1 for behavior
     int expectedRollPitch[2]; //expected body orientation (roll, pitch)
     byte angleDataRatio;      //divide large angles by 1 or 2. if the max angle of a skill is >128, all the angls will be divided by 2
@@ -431,26 +428,6 @@ class Motion {
       }
       loadDataByOnboardEepromAddress(onBoardEepromAddress);
     }
-
-    /*    void loadBySkillPtr(Skill* sk) {//obsolete. get lookup information from a skill pointer and read the data array from storage
-          loadDataByOnboardEepromAddress(sk->onBoardEepromAddress);
-        }
-    */
-
-    void info() {
-      PTF("period: ");
-      PT(String(period));// + ",\tdelayBetweenFrames: " + ",\texpected (pitch,roll): (" + expectedRollPitch[0]*M_RAD2DEG + "," + expectedRollPitch[1]*M_RAD2DEG + ")");
-      PTF(",\tdelayBetweenFrames: ");// + ",\texpected (pitch,roll): (" + expectedRollPitch[0]*M_RAD2DEG + "," + expectedRollPitch[1]*M_RAD2DEG + ")");
-      PTF(",\texpected (pitch,roll): (");// + expectedRollPitch[0]*M_RAD2DEG + "," + expectedRollPitch[1]*M_RAD2DEG + ")");
-      PT(expectedRollPitch[0]*M_RAD2DEG);
-      PTF(",");
-      PT(expectedRollPitch[1]*M_RAD2DEG);
-      PTLF(")");
-      for (int k = 0; k < period * (period > 1 ? WALKING_DOF : 16); k++) {
-        PT(String((int8_t)dutyAngles[k]) + ", ");
-      }
-      PTL();
-    }
 };
 
 
@@ -478,8 +455,8 @@ inline int8_t servoCalib(byte idx) {
 }
 
 // balancing parameters
-#define ROLL_LEVEL_TOLERANCE 3
-#define PITCH_LEVEL_TOLERANCE 2
+#define ROLL_LEVEL_TOLERANCE 0.25
+#define PITCH_LEVEL_TOLERANCE 0.25
 
 #define LARGE_ROLL 90
 #define LARGE_PITCH 75
@@ -499,9 +476,6 @@ inline int8_t servoCalib(byte idx) {
 #define POSTURE_WALKING_FACTOR 0.5
 extern float postureOrWalkingFactor;
 
-extern float RollPitchDeviation[2];
-extern int8_t ramp;
-
 
 inline int8_t adaptiveCoefficient(byte idx, byte para) {
   return EEPROM.read(ADAPT_PARAM + idx * NUM_ADAPT_PARAM + para);
@@ -511,14 +485,36 @@ float adjust(byte i);
 
 void saveCalib(int8_t *var);
 
-void calibratedPWM(byte i, float angle, float speedRatio = 0);
+void calibratedPWM(byte i, float angle);
 
 void allCalibratedPWM(char * dutyAng, byte offset = 0);
 
 void shutServos();
 
+template <typename T> void moveToPose( T * target, byte angleDataRatio = 1, float degreesPerStep = 1, byte offset = 0) {
+  if (degreesPerStep == 0) { // No speed limiting
+    allCalibratedPWM(target, 8);
+  } else {
+    int *diff = new int [DOF - offset], maxDiff = 0;
+    for (byte i = offset; i < DOF; i++) {
+      diff[i - offset] =   currentAng[i] - target[i - offset] * angleDataRatio;
+      maxDiff = max(maxDiff, abs( diff[i - offset]));
+    }
+
+    byte steps = byte(round(maxDiff / degreesPerStep));
+
+    for (byte s = 0; s <= steps; s++) {
+      for (byte i = offset; i < DOF; i++) {
+        float dutyAng = (target[i - offset] * angleDataRatio + (steps == 0 ? 0 : (1 + cos(M_PI * s / steps)) / 2 * diff[i - offset]));
+        calibratedPWM(i,  dutyAng);
+      }
+    }
+    delete [] diff;
+  }
+}
+
 template <typename T> void transform( T * target, byte angleDataRatio = 1, float speedRatio = 1, byte offset = 0) {
-  if (speedRatio == 0) {
+  if (speedRatio == 0) { // No speed limiting
     allCalibratedPWM(target, 8);
   } else {
     int *diff = new int [DOF - offset], maxDiff = 0;
@@ -539,8 +535,6 @@ template <typename T> void transform( T * target, byte angleDataRatio = 1, float
   }
 }
 
-
-void skillByCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true);
 
 
 

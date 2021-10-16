@@ -13,7 +13,7 @@
 
 #include <Arduino.h>
 #include <stdint.h>
-#include "Command.h"
+#include "../command/Command.h"
 
 #define MAX_STRING_LENGTH (63)
 

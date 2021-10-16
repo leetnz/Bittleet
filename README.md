@@ -27,13 +27,12 @@ make test
 - [ ] Make Skill commands their own Command category - will consume a little extra RAM
 - [ ] Make serial output a `StatusReporter`
     - [ ] Add Command Skills as a type of status report
-- [ ] Move EEPROM specific functionality out of OpenCat/Bittle.ino
-    - [ ] Create an interface `SkillLoader` and structure `Skill` (this becomes effectively the motion data type)
-    - [ ] Create `EepromConfig` which implements `SkillLoader`
-    - [ ] Create `ProgmemSkillLoader` which implements `SkillLoader`
 - [ ] Move IMU specific functionality out of `Bittle.ino`
 - [ ] Bittle DOF is 9 under normal circumstances. Consider making DOF matrixes only 9 
     - will reclaim 10 bytes of RAM per servo, so 70 bytes doing this.
+- [ ] Motion behavior reads from internal EEPROM for calibration
+    - [ ] Need to benchmark EEPROM reads
+    - [ ] Ideally, we just store these params in RAM/ROM
 
 ## Wishlist
 - [ ] Add arduino integration to github actions
