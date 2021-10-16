@@ -33,10 +33,8 @@ std::string Stream::readStringUntil(char terminator) {
 }
 
 int16_t Stream::print(const char* s) { 
-    std::cout << s;
     return 0; 
 }
 int16_t Stream::println(const char* s) { 
-    std::cout << s << std::endl;
     return 0; 
 }

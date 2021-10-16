@@ -13,6 +13,7 @@
 
 #include "Arduino.h"
 #include "Wire.h"
+#include "EEPROM.h"
 
 #include "skill/LoaderEeprom.h"
 
@@ -36,6 +37,61 @@ class LoaderWhitebox : public LoaderEeprom {
             return _lookupAddressByName(name);
         }
 };
+
+TEST_CASE("LoaderEeprom::_lookupAddressByName", "[LoaderEeprom]" ) 
+{
+    const std::vector<char> nameData = {
+        3, 'c', 'a', 't',       'I',    0x34, 0x12, 
+        4, 'l', 'e', 'e', 't',  'I',    0x37, 0x13,
+        4, 's', 't', 'a', 'r',  'I',    0x10, 0x10,
+        2, 'u', 'p',            'I',    0x01, 0x00,
+        4, 'f', 'a', 'i', 'l',  'N',    0x01, 0x00,
+    };
+    for (size_t i = 0; i<nameData.size(); i++) {
+        EEPROM.data[200 + i] = nameData[i];
+    }
+
+    struct TestCase {
+        std::string name;
+        const char* skillName;
+        int16_t expected;
+    };
+
+    const std::vector<TestCase> testCases = {
+        TestCase{ 
+            .name = "valid - cat",
+            .skillName = "cat",
+            .expected = 0x1234,    
+        },
+        TestCase{ 
+            .name = "valid - leet",
+            .skillName = "leet",
+            .expected = 0x1337,    
+        },
+        TestCase{ 
+            .name = "valid - up",
+            .skillName = "up",
+            .expected = 0x0001,    
+        },
+        TestCase{ 
+            .name = "invalid - fail",
+            .skillName = "fail",
+            .expected = -1,    
+        },
+        TestCase{ 
+            .name = "invalid - unknown",
+            .skillName = "unknown",
+            .expected = -1,    
+        },
+    };
+
+    for (auto& tc : testCases) {
+        SECTION(tc.name) {            
+            LoaderWhitebox loader = LoaderWhitebox();
+            REQUIRE(tc.expected == loader.lookupAddressByName(tc.skillName));
+        }
+    }
+}
 
 TEST_CASE("LoaderEeprom::_loadFromAddress", "[LoaderEeprom]" ) 
 { 
