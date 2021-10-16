@@ -31,22 +31,29 @@ static int EEPROMReadInt(int p_address)
 int16_t LoaderEeprom::_lookupAddressByName(const char* skillName) {
     PTL(skillName);
     int skillAddressShift = 0;
+    int expectedLen = strlen(skillName);
     for (byte s = 0; s < NUM_SKILLS; s++) {
         byte nameLen = EEPROM.read(LOOKUP_NAME_START_ADDR + skillAddressShift++);
-        char* readName = new char[nameLen + 1];
-        for (byte l = 0; l < nameLen; l++) {
-            readName[l] = EEPROM.read(LOOKUP_NAME_START_ADDR + skillAddressShift++);
-        }
-        readName[nameLen] = '\0';
-        if (!strcmp(readName, skillName)) {
-            delete[]readName;
-            char skillType = EEPROM.read(LOOKUP_NAME_START_ADDR + skillAddressShift);
-            if (skillType != 'I') { 
-                return -1; // Can't load!
+        if (nameLen != expectedLen)
+        {
+            skillAddressShift += nameLen;
+        } else {
+            char* readName = new char[nameLen + 1];
+            for (byte l = 0; l < nameLen; l++) {
+                readName[l] = EEPROM.read(LOOKUP_NAME_START_ADDR + skillAddressShift++);
             }
-            return EEPROMReadInt(LOOKUP_NAME_START_ADDR + skillAddressShift + 1);
+            readName[nameLen] = '\0';
+            if (!strcmp(readName, skillName)) {
+                delete[]readName;
+                char skillType = EEPROM.read(LOOKUP_NAME_START_ADDR + skillAddressShift);
+                if (skillType != 'I') { 
+                    return -1; // Can't load!
+                }
+                return EEPROMReadInt(LOOKUP_NAME_START_ADDR + skillAddressShift + 1);
+            }
+            delete[]readName;
         }
-        delete[]readName;
+        
         skillAddressShift += 3;//1 byte type, 1 int address
     }
     PTLF("wrong key!");

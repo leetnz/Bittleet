@@ -76,7 +76,7 @@ IRrecv irrecv(IR_RECEIVER);     // create instance of 'irrecv'
 static Command::Command lastCmd;
 static byte hold = 0;
 static int8_t offsetLR = 0;
-static bool checkGyro = true;
+static bool checkGyro = false;
 static int8_t skipGyro = 2;
 
 static uint8_t frameIndex = 0;
@@ -258,6 +258,7 @@ static void initIMU() {
 }
 
 void Bittleet::setup() {
+  skill = Skill::Skill::Empty();
   loader = new Skill::LoaderEeprom();
   pinMode(BUZZER, OUTPUT);  
 
@@ -428,7 +429,9 @@ void Bittleet::loop() {
             if (lastCmd != newCmd) { //first time entering the calibration function
               lastCmd = newCmd;
               loader->load(newCmd, skill);
-              transform(skill.spec);
+              if (skill.type != Skill::Type::Invalid) {
+                transform(skill.spec);
+              }
               checkGyro = false;
             }
             if (cmd.len == 2) {
@@ -527,7 +530,7 @@ void Bittleet::loop() {
         for (byte a = 0; a < DOF; a++) {
           currentAdjust[a] = 0.0f;
         }
-      } else {
+      } else if (skill.type != Skill::Type::Invalid) {
         int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
         transform( skill.spec, angleMultiplier, 1, firstMotionJoint);
       }
@@ -542,7 +545,7 @@ void Bittleet::loop() {
 
     //motion block
     {
-      if (enableMotion) {
+      if (enableMotion && skill.type != Skill::Type::Invalid) {
         if (jointIdx == DOF) {
             frameIndex++;
             if (frameIndex >= skill.frames) {
