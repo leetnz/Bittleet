@@ -60,6 +60,7 @@ Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
 
 
 
+#include "../3rdParty/MemoryFree/MemoryFree.h"
 
 // https://brainy-bits.com/blogs/tutorials/ir-remote-arduino
 #include <IRremote.h>
@@ -76,20 +77,16 @@ IRrecv irrecv(IR_RECEIVER);     // create instance of 'irrecv'
 static Command::Command lastCmd;
 static byte hold = 0;
 static int8_t offsetLR = 0;
-static bool checkGyro = false;
+static bool checkGyro = true;
 static int8_t skipGyro = 2;
 
 static uint8_t frameIndex = 0;
 static byte firstMotionJoint;
-static byte jointIdx = 0;
 
 static int8_t servoCalibs[DOF] = {};
 
-
 static Skill::Skill skill;
 static Skill::Loader* loader;
-
-
 
 static Attitude::Attitude attitude = Attitude::Attitude(1.0/8.0f);
 #define AXIS_YAW (0)
@@ -322,9 +319,14 @@ void Bittleet::loop() {
   if (remainingUs > 0) {
     delayMicroseconds(remainingUs);
   }
-  PTF("deltaT: ");
-  PTL(deltaUs);
-  lastUpdateUs += UPDATE_PERIOD_US;
+  PTF("deltaT: "); PT(deltaUs); 
+  PTF("\tfree memory: "); PT(freeMemory());
+  PTL();
+  if (deltaUs > 2 * UPDATE_PERIOD_US) {
+    lastUpdateUs = micros(); // Restart
+  } else {
+    lastUpdateUs += UPDATE_PERIOD_US;
+  }
   
 
   int battAdcReading = analogRead(BATT);
@@ -364,7 +366,6 @@ void Bittleet::loop() {
         // TODO: Should add an error beep type
       } else {
         enableMotion = true;
-        loader->load(newCmd, skill);
       }
     } else if (newCmd.type() == Command::Type::Simple) {
       Command::Simple cmd;
@@ -425,7 +426,6 @@ void Bittleet::loop() {
             PTL();
             printRange(DOF);
             printList(servoCalibs);
-            //yield();
             if (lastCmd != newCmd) { //first time entering the calibration function
               lastCmd = newCmd;
               loader->load(newCmd, skill);
@@ -500,7 +500,9 @@ void Bittleet::loop() {
     }
 
     if ((newCmd != Command::Command()) && (newCmd != lastCmd)) {
+      PTL("Loading...");
       loader->load(newCmd, skill);
+      PTL("Loaded");
 
       offsetLR = 0;
       if (newCmd.type() == Command::Type::Move) {
@@ -514,11 +516,8 @@ void Bittleet::loop() {
       } 
 
       frameIndex = 0;
-      if ((newCmd != Command::Simple::Balance) && 
-          (newCmd != Command::Simple::Lifted) && 
-          (newCmd != Command::Simple::Dropped)) {
-        lastCmd = newCmd;
-      }
+
+      lastCmd = newCmd;
 
       postureOrWalkingFactor = (skill.type == Skill::Type::Posture) ? 1 : POSTURE_WALKING_FACTOR;
       firstMotionJoint = (skill.type == Skill::Type::Gait) ? DOF - WALKING_DOF : 0;
@@ -535,49 +534,45 @@ void Bittleet::loop() {
         transform( skill.spec, angleMultiplier, 1, firstMotionJoint);
       }
 
-      jointIdx = 3;//DOF; to skip the large adjustment caused by MPU overflow. joint 3 is not used.
       if (newCmd == Command::Simple::Rest) {
         shutServos();
         enableMotion = false;
-        lastCmd = newCmd;
       }
     }
 
     //motion block
     {
-      if (enableMotion && skill.type != Skill::Type::Invalid) {
-        if (jointIdx == DOF) {
-            frameIndex++;
-            if (frameIndex >= skill.frames) {
-              frameIndex = 0;
-            }
-            jointIdx = 0;
+      if ((enableMotion) && (skill.type == Skill::Type::Gait)) {
+        if (frameIndex >= skill.frames) {
+          frameIndex = 0;
         }
 
-        if (jointIdx == 1) {
-          jointIdx = firstMotionJoint;
+        for (int i = 0; i<DOF; i++) {
+          if (i == 0) {
+            if (skill.frames > 1) {
+              calibratedPWM(i, offsetLR //look left or right
+                          + 10 * sin (frameIndex * (2) * M_PI / skill.frames) //look around
+                        );
+            }
+          } else {
+            if (i == 1) {
+              i = firstMotionJoint;
+            }
+          
+            int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
+            int dutyIdx = frameIndex * WALKING_DOF + (i - firstMotionJoint);
+            calibratedPWM(i, skill.spec[dutyIdx]*angleMultiplier
+                          + (checkGyro ?
+                            (!(frameIndex % skipGyro)  ?
+                              adjust(i)
+                              : currentAdjust[i].toF32())
+                            : 0)
+                        );
+    
+          }
         }
-        if ((jointIdx < firstMotionJoint) && (skill.frames > 1)) {
-          calibratedPWM(jointIdx, (jointIdx != 1 ? offsetLR : 0) //look left or right
-                        + 10 * sin (frameIndex * (jointIdx + 2) * M_PI / skill.frames) //look around
-                        + (checkGyro ? adjust(jointIdx) : 0)
-                       );
-        }
-        else if (jointIdx >= firstMotionJoint) {
-          int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
-          int dutyIdx = frameIndex * WALKING_DOF + (jointIdx - firstMotionJoint);
-          calibratedPWM(jointIdx, skill.spec[dutyIdx]*angleMultiplier
-                        + (checkGyro ?
-                           (!(frameIndex % skipGyro)  ?
-                            adjust(jointIdx)
-                            : currentAdjust[jointIdx].toF32())
-                           : 0)
-                       );
-  
-        }
-        jointIdx++;
-      }
-      else {
+        frameIndex++;
+      } else {
         frameIndex = 0;
       }
     }

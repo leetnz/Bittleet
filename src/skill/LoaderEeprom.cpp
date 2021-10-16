@@ -65,6 +65,11 @@ int16_t LoaderEeprom::_lookupAddressByName(const char* skillName) {
 #define BEHAVIOR_SUFFIX (4)
 
 void LoaderEeprom::_loadFromAddress(uint16_t address, Skill& skill) {
+    if (skill.spec != NULL) {
+        delete[] skill.spec;
+    }
+    skill = Skill::Empty();
+
     Wire.beginTransmission(DEVICE_ADDRESS);
     Wire.write((int)((address) >> 8));   // MSB
     Wire.write((int)((address) & 0xFF)); // LSB
@@ -87,7 +92,7 @@ void LoaderEeprom::_loadFromAddress(uint16_t address, Skill& skill) {
         frameSize = DOF + BEHAVIOR_SUFFIX;
     } else {
         PTLF("Invalid skill spec");
-        skill = Skill::Empty();
+        
         return;
     }
 
@@ -102,20 +107,15 @@ void LoaderEeprom::_loadFromAddress(uint16_t address, Skill& skill) {
         skill.loopSpec.count = Wire.read();
     }
 
-    skill.specLength = skill.frames * frameSize;
-
-    if (skill.spec != NULL) {
-        delete[] skill.spec;
-    }
-
+    skill.specLength = (uint16_t)skill.frames * frameSize;
     skill.spec = new char[skill.specLength];
 
-    int readFromEE = 0;
+    int index = 0;
     int len = skill.specLength;
     while (len > 0) {
         Wire.requestFrom(DEVICE_ADDRESS, min(WIRE_BUFFER, len));
-        while (Wire.available()) {
-            skill.spec[readFromEE++] = Wire.read();
+        while (Wire.available() && (len > 0)) {
+            skill.spec[index++] = Wire.read();
             len--;
         }
     }
