@@ -15,6 +15,17 @@ Requires `g++` and `make`. Run tests with:
 make test
 ```
 
+## External Libraries
+
+In the Arduino IDE:
+1. Click `Tools->Manage Libraries`
+2. Search `Adafruit NeoPixel`
+3. Install version `1.8.7`
+4. Search `Adafruit PWM Servo Driver Library`
+5. Install version `2.4.0`
+
+All other dependencies are included in this project under `src/3rdParty`.
+
 ## Interfacing with Bittleet
 
 * [Bittleet Serial Protocol](https://github.com/leetnz/Bittleet/wiki/Bittleet-Communication-Protocol)
@@ -22,7 +33,6 @@ make test
 
 # TODO
 
-- [ ] Document Installation Dependencies
 - [ ] Implement `PixelStatusReporter` to use the neopixels to communicate Bittle status 
 - [ ] Make Skill commands their own Command category - will consume a little extra RAM
 - [ ] Make serial output a `StatusReporter`
@@ -33,9 +43,6 @@ make test
     - [ ] Ideally, we just store these params in RAM/ROM
 
 ## Wishlist
-- [ ] Add arduino integration to github actions
-    - https://github.com/arduino/arduino-cli-example
-    - Would like to see binary size/RAM - set some thresholds to fail when this goes over a threshold
 - [ ] Implement a binary protocol for executing skills, getting petoi status
 - [ ] Bittle navigation integration with ROS would be nice, we would need twist messages... 
     - Might want to consider how we can determine that data...
