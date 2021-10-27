@@ -4,11 +4,15 @@
         {
             "name": "Test",
             "compilerPath": "/usr/bin/c++",
+            "compilerArgs": [],
             "intelliSenseMode": "gcc-x64",
-            "includePath": ["${workspaceFolder}/**"],
-            "defines": [],
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "forcedInclude": [],
             "cStandard": "c11",
-            "cppStandard": "c++11"
+            "cppStandard": "c++11",
+            "defines": []
         },
         {
             "name": "Arduino",
@@ -29,14 +33,10 @@
                 "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\libraries\\Wire\\src",
                 "C:\\Users\\hoani\\OneDrive\\Documents\\Arduino\\libraries\\Adafruit_PWM_Servo_Driver_Library",
                 "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\libraries\\EEPROM\\src",
-                "C:\\Users\\hoani\\OneDrive\\Documents\\Arduino\\libraries\\I2Cdev",
-                "C:\\Users\\hoani\\OneDrive\\Documents\\Arduino\\libraries\\MPU6050",
                 "C:\\Users\\hoani\\OneDrive\\Documents\\Arduino\\libraries\\Adafruit_NeoPixel",
-                "C:\\Users\\hoani\\OneDrive\\Documents\\Arduino\\libraries\\IRremote\\src",
                 "c:\\program files (x86)\\arduino\\hardware\\tools\\avr\\lib\\gcc\\avr\\7.3.0\\include",
                 "c:\\program files (x86)\\arduino\\hardware\\tools\\avr\\lib\\gcc\\avr\\7.3.0\\include-fixed",
-                "c:\\program files (x86)\\arduino\\hardware\\tools\\avr\\avr\\include",
-                "${workspaceFolder}/**"
+                "c:\\program files (x86)\\arduino\\hardware\\tools\\avr\\avr\\include"
             ],
             "forcedInclude": [
                 "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h"

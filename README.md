@@ -1,5 +1,5 @@
 # Bittleet
-[![Bittleet CI](https://github.com/leetnz/Bittleet/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/leetnz/Bittleet/actions/workflows/c-cpp.yml)
+[![Bittleet CI](https://github.com/leetnz/Bittleet/actions/workflows/actions.yml/badge.svg)](https://github.com/leetnz/Bittleet/actions/workflows/c-cpp.yml)
 
 A fork of [Petoi OpenCat](https://github.com/PetoiCamp/OpenCat) but only focusses on Bittle.
 
@@ -28,8 +28,6 @@ make test
 - [ ] Make serial output a `StatusReporter`
     - [ ] Add Command Skills as a type of status report
 - [ ] Move IMU specific functionality out of `Bittle.ino`
-- [ ] Bittle DOF is 9 under normal circumstances. Consider making DOF matrixes only 9 
-    - will reclaim 10 bytes of RAM per servo, so 70 bytes doing this.
 - [ ] Motion behavior reads from internal EEPROM for calibration
     - [ ] Need to benchmark EEPROM reads
     - [ ] Ideally, we just store these params in RAM/ROM

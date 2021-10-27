@@ -1,0 +1,45 @@
+name: Bittleet CI 
+
+on: [push]
+
+jobs:
+  unittests:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run Tests
+      run: make test
+
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: arduino/compile-sketches@v1
+      with:
+        sketch-paths: |
+          - ./
+        fqbn: 'arduino:avr:uno'
+        enable-deltas-report: true
+        libraries: |
+          - name: "Adafruit PWM Servo Driver Library"
+            source-url: https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library.git
+            version: 2.4.0
+          - name: "Adafruit NeoPixel"
+            source-url: https://github.com/adafruit/Adafruit_NeoPixel.git
+            version: 1.10.0
+    - uses: actions/upload-artifact@v2
+      with:
+        name: sketches-reports
+        path: sketches-reports
+
+  report:
+    needs: compile 
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download sketches reports artifact
+        uses: actions/download-artifact@v2
+
+      - uses: arduino/report-size-deltas@v1

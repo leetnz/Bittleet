@@ -33,8 +33,8 @@
 #include "../OpenCat.h"
 #include "../command/Command.h"
 
-#include <I2Cdev.h>
-#include <MPU6050.h>
+#include "../3rdParty/I2Cdev/I2Cdev.h"
+#include "../3rdParty/MPU6050/MPU6050.h"
 
 
 #include <Adafruit_NeoPixel.h>
@@ -63,7 +63,7 @@ Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
 #include "../3rdParty/MemoryFree/MemoryFree.h"
 
 // https://brainy-bits.com/blogs/tutorials/ir-remote-arduino
-#include <IRremote.h>
+#include "../3rdParty/IRremote/src/IRremote.h"
 #define SHORT_ENCODING // activating this line will use a shorter encoding of the HEX values
 // the original value is formatted as address  code complement
 //                                   2Bytes  1Byte   1Byte

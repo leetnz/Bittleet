@@ -10,8 +10,8 @@
 #include "AttitudeBenchmark.h"
 #include "../state/Attitude.h"
 
-#include <I2Cdev.h>
-#include <MPU6050.h>
+#include "../3rdParty/I2Cdev/I2Cdev.h"
+#include "../3rdParty/MPU6050/MPU6050.h"
 
 
 static MPU6050 mpu;
