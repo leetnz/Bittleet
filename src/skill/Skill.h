@@ -1,3 +1,12 @@
+//
+// Bittle Skill
+// Represents skills that Bittle can execute
+//
+// Hoani Bryson (github.com/hoani)
+// Copyright (c) 2021 Leetware Limited.
+// License - MIT
+//
+
 #ifndef _BITTLEET_SKILL_H_
 #define _BITTLEET_SKILL_H_
 
