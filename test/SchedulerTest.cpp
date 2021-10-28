@@ -37,3 +37,21 @@ TEST_CASE("Registration", "[Scheduler]" )
         REQUIRE(s.registerTask(100) == -1);
     }
 }
+
+TEST_CASE("Delay", "[Scheduler]" ) 
+{ 
+    SECTION("nothing registered"){
+        Scheduler::Scheduler<1> s{};
+        REQUIRE(s.waitUntilNextTask() == -1);
+    }
+
+    SECTION("single task"){
+        TimeMock::reset();
+        Scheduler::Scheduler<1> s{};
+        int task = s.registerTask(100);
+        REQUIRE(task == s.waitUntilNextTask());
+        REQUIRE(TimeMock::totalDelayUs == 0);
+        REQUIRE(task == s.waitUntilNextTask());
+        REQUIRE(TimeMock::totalDelayUs == 100);
+    }
+}
