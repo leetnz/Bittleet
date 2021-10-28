@@ -75,7 +75,6 @@ IRrecv irrecv(IR_RECEIVER);     // create instance of 'irrecv'
 
 //control related variables
 static Command::Command lastCmd;
-static byte hold = 0;
 static int8_t offsetLR = 0;
 static bool checkGyro = true;
 static int8_t skipGyro = 2;
@@ -236,7 +235,6 @@ static void initIMU() {
   mpu.initialize();
   PTL(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
 
-  // load and configure the DMP
   delay(500);
   // supply your own gyro offsets here, scaled for min sensitivity
   for (byte i = 0; i < 4; i++) {
@@ -305,7 +303,7 @@ void Bittleet::setup() {
   pixels.show(); 
 }
 
-#define UPDATE_PERIOD_US (10000)
+#define UPDATE_PERIOD_US (20000)
 void Bittleet::loop() {
   static uint32_t lastUpdateUs = micros();
   static Comms::SerialComms serialComms;
@@ -313,18 +311,23 @@ void Bittleet::loop() {
   static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
 
   uint32_t deltaUs = micros() - lastUpdateUs;
-  int32_t remainingUs = UPDATE_PERIOD_US - deltaUs;
-  if (remainingUs > 0) {
-    delayMicroseconds(remainingUs);
+  if (deltaUs < UPDATE_PERIOD_US) {
+    uint16_t sleepUs = UPDATE_PERIOD_US - deltaUs;
+    // Note, we do this because of an error in the arduino library.
+    while (sleepUs > 10000) {
+      delayMicroseconds(10000);
+      sleepUs -= 10000;
+    }
+    delayMicroseconds(sleepUs);
+    lastUpdateUs += UPDATE_PERIOD_US;
+  } else {
+    // Restart
+    delayMicroseconds(UPDATE_PERIOD_US);
+    lastUpdateUs = micros(); 
   }
   PTF("deltaT: "); PT(deltaUs); 
   PTF("\tfree memory: "); PT(freeMemory());
   PTL();
-  if (deltaUs > 2 * UPDATE_PERIOD_US) {
-    lastUpdateUs = micros(); // Restart
-  } else {
-    lastUpdateUs += UPDATE_PERIOD_US;
-  }
   
 
   int battAdcReading = analogRead(BATT);
@@ -560,14 +563,7 @@ void Bittleet::loop() {
             
               int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
               int dutyIdx = frameIndex * WALKING_DOF + (i - firstMotionJoint);
-              calibratedPWM(i, skill.spec[dutyIdx]*angleMultiplier
-                            + (checkGyro ?
-                              (!(frameIndex % skipGyro)  ?
-                                adjust(i)
-                                : currentAdjust[i].toF32())
-                              : 0)
-                          );
-      
+              calibratedPWM(i, skill.spec[dutyIdx]*angleMultiplier);
             }
           }
           frameIndex++;
