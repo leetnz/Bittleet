@@ -49,6 +49,8 @@
 #include "../skill/Skill.h"
 #include "../skill/LoaderEeprom.h"
 
+#include "../scheduler/Scheduler.h"
+
 static MPU6050 mpu;
 
 // NeoPixel integration
@@ -225,6 +227,15 @@ static void doBehaviorSkill(Skill::Skill& skill) {
   }
 }
 
+#define NUM_TASKS (1)
+#define MOVEMENT_PERIOD_US (20000)
+static Scheduler::Scheduler<NUM_TASKS> scheduler{};
+static int taskMove;
+
+
+static void initScheduler(){
+  taskMove = scheduler.registerTask(MOVEMENT_PERIOD_US);
+}
 
 static void initI2C() {
   Wire.begin();
@@ -253,7 +264,9 @@ static void initIMU() {
 void Bittleet::setup() {
   skill = Skill::Skill::Empty();
   loader = new Skill::LoaderEeprom();
-  pinMode(BUZZER, OUTPUT);  
+  pinMode(BUZZER, OUTPUT);
+
+  initScheduler();
 
   Serial.begin(BAUD_RATE);
   while (!Serial); // wait for ready
@@ -303,29 +316,21 @@ void Bittleet::setup() {
   pixels.show(); 
 }
 
-#define UPDATE_PERIOD_US (20000)
-void Bittleet::loop() {
-  static uint32_t lastUpdateUs = micros();
+
+
+void Bittleet::loop() { 
   static Comms::SerialComms serialComms;
   static bool enableMotion = false;
   static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
 
-  uint32_t deltaUs = micros() - lastUpdateUs;
-  if (deltaUs < UPDATE_PERIOD_US) {
-    uint16_t sleepUs = UPDATE_PERIOD_US - deltaUs;
-    // Note, we do this because of an error in the arduino library.
-    while (sleepUs > 10000) {
-      delayMicroseconds(10000);
-      sleepUs -= 10000;
-    }
-    delayMicroseconds(sleepUs);
-    lastUpdateUs += UPDATE_PERIOD_US;
-  } else {
-    // Restart
-    delayMicroseconds(UPDATE_PERIOD_US);
-    lastUpdateUs = micros(); 
-  }
-  PTF("deltaT: "); PT(deltaUs); 
+  static uint32_t lastUs = micros();
+  
+  uint32_t deltaUs = micros() - lastUs;
+  int nextTask = scheduler.waitUntilNextTask();
+  lastUs = micros();
+
+  PTF("task: "); PT(nextTask);
+  PTF("\tdeltaT: "); PT(deltaUs); 
   PTF("\tfree memory: "); PT(freeMemory());
   PTL();
   
