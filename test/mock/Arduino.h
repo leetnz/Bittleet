@@ -29,7 +29,7 @@ public:
     static void reset();
     static uint32_t currentUs;
     static uint16_t lastDelayUs;
-    static uint16_t totalDelayUs;
+    static uint32_t totalDelayUs;
 };
 
 uint32_t micros();

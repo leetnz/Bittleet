@@ -2,7 +2,7 @@
 
 uint32_t TimeMock::currentUs = 0;
 uint16_t TimeMock::lastDelayUs = 0;
-uint16_t TimeMock::totalDelayUs = 0;
+uint32_t TimeMock::totalDelayUs = 0;
 
 void TimeMock::reset(){
     currentUs = 0;

@@ -70,15 +70,19 @@ class Scheduler {
     }
 
     void _waitUntilReady(int index) {
-        uint32_t currentUs = micros();
-        int32_t deltaUs = _nextUpdateUs[index] - currentUs;
+        int32_t deltaUs = _nextUpdateUs[index] - micros();
         if (deltaUs <= 0){
             if (deltaUs < - (int32_t)_periodUs[index]){
-                _nextUpdateUs[index] = currentUs;
+                _nextUpdateUs[index] = micros();
             }
         } else {
-            // TODO: Gonna need to do this in 10ms chunks
-            delayMicroseconds(deltaUs);
+            while(deltaUs > 10000){
+                delayMicroseconds(10000);
+                deltaUs = _nextUpdateUs[index] - micros();
+            }
+            if (deltaUs > 0){
+                delayMicroseconds(deltaUs);
+            }
         }
         _nextUpdateUs[index] += _periodUs[index];
     }
