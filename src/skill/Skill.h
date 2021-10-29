@@ -40,6 +40,8 @@ struct Skill {
     char * spec; // Interpretation depends on type
     uint16_t specLength;
 
+    void clear();
+
     static Skill Empty(); // This is the safe method of creating a skill.
 };
 

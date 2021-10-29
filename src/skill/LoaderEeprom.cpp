@@ -11,7 +11,7 @@
 #define PTLF(s) Serial.println(F(s))
 
 #define DEVICE_ADDRESS 0x54
-#define WIRE_BUFFER 30 //Arduino wire allows 32 byte buffer, with 2 byte for address.
+#define WIRE_BUFFER 8 // We use a small buffer to keep RAM usage low.
 
 #define NUM_SKILLS 31
 
@@ -65,10 +65,7 @@ int16_t LoaderEeprom::_lookupAddressByName(const char* skillName) {
 #define BEHAVIOR_SUFFIX (4)
 
 void LoaderEeprom::_loadFromAddress(uint16_t address, Skill& skill) {
-    if (skill.spec != NULL) {
-        delete[] skill.spec;
-    }
-    skill = Skill::Empty();
+    skill.clear();
 
     Wire.beginTransmission(DEVICE_ADDRESS);
     Wire.write((int)((address) >> 8));   // MSB
@@ -92,7 +89,6 @@ void LoaderEeprom::_loadFromAddress(uint16_t address, Skill& skill) {
         frameSize = DOF + BEHAVIOR_SUFFIX;
     } else {
         PTLF("Invalid skill spec");
-        
         return;
     }
 
