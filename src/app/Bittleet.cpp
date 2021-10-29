@@ -81,9 +81,6 @@ static int8_t offsetLR = 0;
 static bool checkGyro = true;
 static int8_t skipGyro = 2;
 
-static uint8_t frameIndex = 0;
-static byte firstMotionJoint;
-
 static int8_t servoCalibs[DOF] = {};
 
 static Skill::Skill skill;
@@ -261,6 +258,11 @@ static void initIMU() {
   mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
 }
 
+static void processNewCommand(Command::Command& newCmd, Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex);
+static void doMotionTask(bool enableMotion, const Skill::Skill& skill, uint8_t firstMotionJoint, uint8_t& frameIndex);
+static void doMotionPosture(const Skill::Skill& skill);
+static void doMotionMove(const Skill::Skill& skill, uint8_t firstMotionJoint, uint8_t& frameIndex);
+
 void Bittleet::setup() {
   skill = Skill::Skill::Empty();
   loader = new Skill::LoaderEeprom();
@@ -321,15 +323,18 @@ void Bittleet::setup() {
 void Bittleet::loop() { 
   static Comms::SerialComms serialComms;
   static bool enableMotion = false;
+  static uint8_t frameIndex = 0;
+  static byte firstMotionJoint;
+
   static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
 
   static uint32_t lastUs = micros();
   
   uint32_t deltaUs = micros() - lastUs;
-  int nextTask = scheduler.waitUntilNextTask();
+  int currentTask = scheduler.waitUntilNextTask();
   lastUs = micros();
 
-  PTF("task: "); PT(nextTask);
+  PTF("task: "); PT(currentTask);
   PTF("\tdeltaT: "); PT(deltaUs); 
   PTF("\tfree memory: "); PT(freeMemory());
   PTL();
@@ -366,234 +371,246 @@ void Bittleet::loop() {
       }
     }
 
+    processNewCommand(newCmd, move, enableMotion, firstMotionJoint, frameIndex);
+
+    
+
+    if (currentTask == taskMove) {
+        doMotionTask(enableMotion, skill, firstMotionJoint, frameIndex);
+    } 
+  }
+}
+
+static void processNewCommand(Command::Command& newCmd, Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex){
     if (newCmd.type() == Command::Type::Move) {
-      if (newCmd.get(move) == false) {
-        PTLF("Move Err"); // Unexpected...
-        // TODO: Should add an error beep type
-      } else {
-        enableMotion = true;
-      }
-    } else if (newCmd.type() == Command::Type::Simple) {
-      Command::Simple cmd;
-      if (newCmd.get(cmd) == false) {
-        PTLF("Simple Err"); // Unexpected...
-      } else {
-        switch(cmd) {
-          case Command::Simple::Rest: {
-            lastCmd = newCmd;
-            doPostureCommand(lastCmd);
-            enableMotion = false;
-            break;
-          }
-          case Command::Simple::GyroToggle: {
-            if (!checkGyro) {
-              checkBodyMotion(newCmd);
-            }
-            checkGyro = !checkGyro;
+        if (newCmd.get(move) == false) {
+            PTLF("Move Err"); // Unexpected...
+            // TODO: Should add an error beep type
+        } else {
             enableMotion = true;
-            break;
-          }
-          case Command::Simple::Pause: {
-            enableMotion = !enableMotion;
-            if (enableMotion) {
-              newCmd = Command::Command(); // resume last command. TODO - don't know if this works?
-            } else {
-              shutServos();
-            }
-            break;
-          }
-          case Command::Simple::SaveServoCalibration: {
-            PTLF("save offset");
-            saveCalib(servoCalibs);
-            break;
-          }
-          case Command::Simple::AbortServoCalibration: {
-            PTLF("aborted");
-            for (byte i = 0; i < DOF; i++) {
-              servoCalibs[i] = servoCalib( i);
-            }
-            break;
-          }
-          case Command::Simple::ShowJointAngles: { //show the list of current joint anles
-            printRange(DOF);
-            printList(currentAng);
-            break;
-          }
         }
-      }
+    } else if (newCmd.type() == Command::Type::Simple) {
+        Command::Simple cmd;
+        if (newCmd.get(cmd) == false) {
+            PTLF("Simple Err"); // Unexpected...
+        } else {
+            switch(cmd) {
+                case Command::Simple::Rest: {
+                    lastCmd = newCmd;
+                    doPostureCommand(lastCmd);
+                    enableMotion = false;
+                    break;
+                }
+                case Command::Simple::GyroToggle: {
+                    checkGyro = !checkGyro;
+                    enableMotion = true;
+                    break;
+                }
+                case Command::Simple::Pause: {
+                    enableMotion = !enableMotion;
+                    if (enableMotion) {
+                        newCmd = Command::Command(); // resume last command. TODO - don't know if this works?
+                    } else {
+                        shutServos();
+                    }
+                    break;
+                }
+                case Command::Simple::SaveServoCalibration: {
+                    PTLF("save offset");
+                    saveCalib(servoCalibs);
+                    break;
+                }
+                case Command::Simple::AbortServoCalibration: {
+                    PTLF("aborted");
+                    for (byte i = 0; i < DOF; i++) {
+                        servoCalibs[i] = servoCalib( i);
+                    }
+                    break;
+                }
+                case Command::Simple::ShowJointAngles: { //show the list of current joint anles
+                    printRange(DOF);
+                    printList(currentAng);
+                    break;
+                }
+            }
+        }
     } else if (newCmd.type() == Command::Type::WithArgs) {
-      enableMotion = false;
-      Command::WithArgs cmd;
-      if (newCmd.get(cmd) == false) {
-        PTLF("WithArgs Err"); // Unexpected...
-      } else {
-        switch(cmd.cmd) {
-          case Command::ArgType::Calibrate: {
-            PTL();
-            printRange(DOF);
-            printList(servoCalibs);
-            if (lastCmd != newCmd) { //first time entering the calibration function
-              lastCmd = newCmd;
-              loader->load(newCmd, skill);
-              if (skill.type != Skill::Type::Invalid) {
-                transform(skill.spec);
-              }
-              checkGyro = false;
+        enableMotion = false;
+        Command::WithArgs cmd;
+        if (newCmd.get(cmd) == false) {
+            PTLF("WithArgs Err"); // Unexpected...
+        } else {
+            switch(cmd.cmd) {
+                case Command::ArgType::Calibrate: {
+                    PTL();
+                    printRange(DOF);
+                    printList(servoCalibs);
+                    if (lastCmd != newCmd) { //first time entering the calibration function
+                        lastCmd = newCmd;
+                        loader->load(newCmd, skill);
+                        if (skill.type != Skill::Type::Invalid) {
+                            transform(skill.spec);
+                        }
+                        checkGyro = false;
+                    }
+                    if (cmd.len == 2) {
+                        int16_t index = cmd.args[0];
+                        int16_t angle = cmd.args[1];
+                        // TODO: This appears to allow both absolute and incremental calibration - kind of wierd logic though; might be able to tidy up later.
+                        //      - Incremental won't work because we use i8... maybe add incremental calbrate command instead
+                        if (angle >= 1001) { // Using 1001 for incremental calibration. 1001 is adding 1 degree, 1002 is adding 2 and 1009 is adding 9 degrees
+                            angle = servoCalibs[index] + angle - 1000;
+                        } else if (angle <= -1001) { // Using -1001 for incremental calibration. -1001 is removing 1 degree, 1002 is removing 2 and 1009 is removing 9 degrees
+                            angle = servoCalibs[index] + angle + 1000;
+                        }
+                        servoCalibs[index] = angle;
+                        int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + skill.spec[index]) * pulsePerDegreeF(index) * rotationDirection(index);
+                        pwm.setPWM(pin(index), 0,  duty);
+                    }
+                    break;
+                }
+                case Command::ArgType::MoveSequentially: {
+                    const float angleInterval = 0.2;
+                    int angleStep = 0;
+                    const int16_t joints = cmd.len/2;
+                    skill.type = Skill::Type::Posture;
+                    for (int16_t i = 0; i < joints; i++) {
+                        int16_t index = cmd.args[0];
+                        int16_t angle = cmd.args[1];
+                        // TODO: This looks like some incremental step logic
+                        //      - need to encapsulate duty in a function
+                        //      - we can probably simplify this a lot.
+                        angleStep = floor((angle - currentAng[index]) / angleInterval);
+                        for (int a = 0; a < abs(angleStep); a++) {
+                            int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + currentAng[index] + a * angleInterval * angleStep / abs(angleStep)) * pulsePerDegreeF(index) * rotationDirection(index);
+                            pwm.setPWM(pin(index), 0,  duty);
+                        }
+                        skill.spec[index] = angle;
+                        currentAng[index] = angle;
+                    }
+                    break;
+                } 
+                case Command::ArgType::Meow: {
+                    const int repeat = (cmd.len >= 1) ? cmd.args[0] : 0;
+                    const int increment = (cmd.len >= 2) ? cmd.args[1] + 1 : 1;
+                    meow(repeat, 0, 50, 200, increment);
+                    break;
+                }
+                case Command::ArgType::Beep: {
+                    const int8_t note = (cmd.len >= 1) ? cmd.args[0] : 0;
+                    const uint8_t duration = (cmd.len >= 2) ? cmd.args[1] : 0;
+                    beep(note, duration);
+                    break;
+                }
+                case Command::ArgType::MoveSimultaneously: {
+                    if (cmd.len != DOF) {
+                        PTLF("Simultaneous Err"); // Unexpected...
+                    } else {
+                        transform(cmd.args, 1, 6);
+                    }
+                    break;
+                }
             }
-            if (cmd.len == 2) {
-              int16_t index = cmd.args[0];
-              int16_t angle = cmd.args[1];
-              // TODO: This appears to allow both absolute and incremental calibration - kind of wierd logic though; might be able to tidy up later.
-              //      - Incremental won't work because we use i8... maybe add incremental calbrate command instead
-              if (angle >= 1001) { // Using 1001 for incremental calibration. 1001 is adding 1 degree, 1002 is adding 2 and 1009 is adding 9 degrees
-                angle = servoCalibs[index] + angle - 1000;
-              } else if (angle <= -1001) { // Using -1001 for incremental calibration. -1001 is removing 1 degree, 1002 is removing 2 and 1009 is removing 9 degrees
-                angle = servoCalibs[index] + angle + 1000;
-              }
-              servoCalibs[index] = angle;
-              int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + skill.spec[index]) * pulsePerDegreeF(index) * rotationDirection(index);
-              pwm.setPWM(pin(index), 0,  duty);
-            }
-            break;
-          }
-          case Command::ArgType::MoveSequentially: {
-            const float angleInterval = 0.2;
-            int angleStep = 0;
-            const int16_t joints = cmd.len/2;
-            skill.type = Skill::Type::Posture;
-            for (int16_t i = 0; i < joints; i++) {
-              int16_t index = cmd.args[0];
-              int16_t angle = cmd.args[1];
-              // TODO: This looks like some incremental step logic
-              //      - need to encapsulate duty in a function
-              //      - we can probably simplify this a lot.
-              angleStep = floor((angle - currentAng[index]) / angleInterval);
-              for (int a = 0; a < abs(angleStep); a++) {
-                int duty = SERVOMIN + PWM_RANGE / 2 + float(middleShift(index)  + servoCalibs[index] + currentAng[index] + a * angleInterval * angleStep / abs(angleStep)) * pulsePerDegreeF(index) * rotationDirection(index);
-                pwm.setPWM(pin(index), 0,  duty);
-              }
-              skill.spec[index] = angle;
-              currentAng[index] = angle;
-            }
-            break;
-          } 
-          case Command::ArgType::Meow: {
-            const int repeat = (cmd.len >= 1) ? cmd.args[0] : 0;
-            const int increment = (cmd.len >= 2) ? cmd.args[1] + 1 : 1;
-            meow(repeat, 0, 50, 200, increment);
-            break;
-          }
-          case Command::ArgType::Beep: {
-            const int8_t note = (cmd.len >= 1) ? cmd.args[0] : 0;
-            const uint8_t duration = (cmd.len >= 2) ? cmd.args[1] : 0;
-            beep(note, duration);
-            break;
-          }
-          case Command::ArgType::MoveSimultaneously: {
-            if (cmd.len != DOF) {
-              PTLF("Simultaneous Err"); // Unexpected...
-            } else {
-              transform(cmd.args, 1, 6);
-            }
-            break;
-          }
         }
-      }
     }
 
     if (newCmd != Command::Command()) {
-      beep(8);
+        beep(8);
     }
 
     if ((newCmd != Command::Command()) && (newCmd != lastCmd)) {
-      PTL("Loading...");
-      loader->load(newCmd, skill);
-      PTL("Loaded");
+        PTL("Loading...");
+        loader->load(newCmd, skill);
+        PTL("Loaded");
 
-      offsetLR = 0;
-      if (newCmd.type() == Command::Type::Move) {
-        if (newCmd.get(move)) {
-          if (move.direction == Command::Direction::Left) {
-            offsetLR = 15;
-          } else if (move.direction == Command::Direction::Right) {
-            offsetLR = -15;
-          }
-        }
-      } 
-
-      frameIndex = 0;
-
-      lastCmd = newCmd;
-
-      postureOrWalkingFactor = (skill.type == Skill::Type::Posture) ? 1 : POSTURE_WALKING_FACTOR;
-      firstMotionJoint = (skill.type == Skill::Type::Gait) ? DOF - WALKING_DOF : 0;
-
-      if (skill.type == Skill::Type::Behaviour) {
-        doBehaviorSkill(skill);
-        lastCmd = Command::Command(Command::Simple::Balance);
-        doPostureCommand(lastCmd, 1, 2, false);
-        for (byte a = 0; a < DOF; a++) {
-          currentAdjust[a] = 0.0f;
-        }
-      } else if (skill.type != Skill::Type::Invalid) {
-        int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
-        transform( skill.spec, angleMultiplier, 1, firstMotionJoint);
-      }
-
-      if (newCmd == Command::Simple::Rest) {
-        shutServos();
-        enableMotion = false;
-      }
-    }
-
-    //motion block
-    {
-      if (enableMotion) {
-        if (skill.type == Skill::Type::Gait) {
-          if (frameIndex >= skill.frames) {
-            frameIndex = 0;
-          }
-
-          for (int i = 0; i<DOF; i++) {
-            if (i == 0) {
-              if (skill.frames > 1) {
-                calibratedPWM(i, offsetLR //look left or right
-                            + 10 * sin (frameIndex * (2) * M_PI / skill.frames) //look around
-                          );
-              }
-            } else {
-              if (i == 1) {
-                i = firstMotionJoint;
-              }
-            
-              int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
-              int dutyIdx = frameIndex * WALKING_DOF + (i - firstMotionJoint);
-              calibratedPWM(i, skill.spec[dutyIdx]*angleMultiplier);
+        offsetLR = 0;
+        if (newCmd.type() == Command::Type::Move) {
+            if (newCmd.get(move)) {
+                if (move.direction == Command::Direction::Left) {
+                    offsetLR = 15;
+                } else if (move.direction == Command::Direction::Right) {
+                    offsetLR = -15;
+                }
             }
-          }
-          frameIndex++;
-        } else {
-          frameIndex = 0;
-        }
-      } else if (skill.type == Skill::Type::Posture) {
-        for (int i = 0; i<DOF; i++) {
-          if (i == 1) {
-            i = DOF - WALKING_DOF; // Dirty hack here... TODO: Clean up
-          }
-          if (i == 0) {
-            calibratedPWM(i, rollDeviation);
-          } else {
+        } 
+
+        frameIndex = 0;
+
+        lastCmd = newCmd;
+
+        postureOrWalkingFactor = (skill.type == Skill::Type::Posture) ? 1 : POSTURE_WALKING_FACTOR;
+        firstMotionJoint = (skill.type == Skill::Type::Gait) ? DOF - WALKING_DOF : 0;
+
+        if (skill.type == Skill::Type::Behaviour) {
+            doBehaviorSkill(skill);
+            lastCmd = Command::Command(Command::Simple::Balance);
+            doPostureCommand(lastCmd, 1, 2, false);
+            for (byte a = 0; a < DOF; a++) {
+                currentAdjust[a] = 0.0f;
+            }
+        } else if (skill.type != Skill::Type::Invalid) {
             int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
-            calibratedPWM(i, skill.spec[i]*angleMultiplier
-                          + (checkGyro ?
-                            (!(frameIndex % skipGyro)  ?
-                              adjust(i)
-                              : currentAdjust[i].toF32())
-                            : 0)
-                        );
-          }
+            transform( skill.spec, angleMultiplier, 1, firstMotionJoint);
         }
-      }
+
+        if (newCmd == Command::Simple::Rest) {
+            shutServos();
+            enableMotion = false;
+        }
     }
-  }
+}
+
+static void doMotionTask(bool enableMotion, const Skill::Skill& skill, uint8_t firstMotionJoint, uint8_t& frameIndex) {
+    if (enableMotion) {
+        doMotionMove(skill, firstMotionJoint, frameIndex);
+    } else {
+        doMotionPosture(skill);
+    }
+}
+
+
+static void doMotionPosture(const Skill::Skill& skill) {
+    if (skill.type == Skill::Type::Posture) {
+        for (int i = 0; i<DOF; i++) {
+            if (i == 1) {
+                i = DOF - WALKING_DOF; // Dirty hack here... TODO: Clean up
+            }
+            if (i == 0) {
+                calibratedPWM(i, rollDeviation);
+            } else {
+                int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
+                float attitudeAdjustment = (checkGyro ? adjust(i) : 0.0f);
+                calibratedPWM(i, skill.spec[i]*angleMultiplier + attitudeAdjustment);
+            }
+        }
+    }
+}
+
+static void doMotionMove(const Skill::Skill& skill, uint8_t firstMotionJoint, uint8_t& frameIndex) {
+    if (skill.type == Skill::Type::Gait) {
+        if (frameIndex >= skill.frames) {
+            frameIndex = 0;
+        }
+
+        for (int i = 0; i<DOF; i++) {
+            if (i == 0) {
+                if (skill.frames > 1) {
+                    calibratedPWM(i, offsetLR //look left or right
+                                + 10 * sin (frameIndex * (2) * M_PI / skill.frames) //look around
+                            );
+                }
+            } else {
+                if (i == 1) {
+                    i = firstMotionJoint;
+                }
+                
+                int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
+                int dutyIdx = frameIndex * WALKING_DOF + (i - firstMotionJoint);
+                calibratedPWM(i, skill.spec[dutyIdx]*angleMultiplier);
+            }
+        }
+        frameIndex++;
+    } else {
+        frameIndex = 0;
+    }
 }
