@@ -56,7 +56,7 @@ static MPU6050 mpu;
 // NeoPixel integration
 #define PIXEL_PIN 10
 #define PIXEL_COUNT 7
-Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
+// Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
 
 #define BAUD_RATE 115200
 
@@ -64,14 +64,8 @@ Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
 
 #include "../3rdParty/MemoryFree/MemoryFree.h"
 
-// https://brainy-bits.com/blogs/tutorials/ir-remote-arduino
 #include "../3rdParty/IRremote/src/IRremote.h"
-#define SHORT_ENCODING // activating this line will use a shorter encoding of the HEX values
-// the original value is formatted as address  code complement
-//                                   2Bytes  1Byte   1Byte
-// it will save 178 Bytes for the final compiled code
-/*-----( Declare objects )-----*/
-IRrecv irrecv(IR_RECEIVER);     // create instance of 'irrecv'
+IRrecv irrecv(IR_RECEIVER);     
 
 // Local variables
 
@@ -92,29 +86,29 @@ static Attitude::Attitude attitude = Attitude::Attitude(1.0/8.0f);
 #define AXIS_ROLL (2)
 
 static float angleFromAxis(int axis) {
-  switch abs(axis) {
-    case AXIS_ROLL: {
-      return attitude.roll();
+    switch abs(axis) {
+        case AXIS_ROLL: {
+            return attitude.roll();
+        }
+        case AXIS_PITCH: {
+            return attitude.pitch();
+        }
+        default: {
+            return 0.0f;
+        }
     }
-    case AXIS_PITCH: {
-      return attitude.pitch();
-    }
-    default: {
-      return 0.0f;
-    }
-  }
 }
 
 static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true) {
-  loader->load(cmd, skill);
-  if (skill.type != Skill::Type::Posture) {
-    return;
-  }
-  transform(skill.spec, angleDataRatio, speedRatio);
-  if (shutServoAfterward) {
-    shutServos();
-    cmd = Command::Command(Command::Simple::Rest);
-  }
+    loader->load(cmd, skill);
+    if (skill.type != Skill::Type::Posture) {
+        return;
+    }
+    transform(skill.spec, angleDataRatio, speedRatio);
+    if (shutServoAfterward) {
+        shutServos();
+        cmd = Command::Command(Command::Simple::Rest);
+    }
 }
 
 
@@ -122,9 +116,9 @@ static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, flo
 
 
 static bool updateAttitude() {
-  Attitude::GravityMeasurement g;
-  mpu.getAcceleration(&g.x, &g.y, &g.z);
-  return attitude.update(g);
+    Attitude::GravityMeasurement g;
+    mpu.getAcceleration(&g.x, &g.y, &g.z);
+    return attitude.update(g);
 }
 
 #define LARGE_PITCH_RAD (LARGE_PITCH * M_DEG2RAD)
@@ -134,252 +128,275 @@ static bool updateAttitude() {
 
 
 static void checkBodyMotion(Command::Command& newCmd)  {
-  static uint8_t balanceRecover = 0;
-  bool updated = updateAttitude();
-  bool recovering = false;
+    static uint8_t balanceRecover = 0;
+    bool updated = updateAttitude();
+    bool recovering = false;
 
-  if (updated) {
-    if ((fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD )) {
-      recovering = true;
-      if (balanceRecover != 0){
-        if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
-          newCmd = Command::Command(Command::Simple::Recover);
-        }
-      }
-      balanceRecover = 10;
-    } else if (balanceRecover != 0) { // recover
-      recovering = true;
-      balanceRecover--;
-      if (balanceRecover == 0) {
-        newCmd = lastCmd;
-        lastCmd = Command::Command(Command::Simple::Balance);
-        attitude.reset();
-        updated = updateAttitude();
-        meow();
-        recovering = false;
-      }
-    }
-  }
-
-  if (recovering) {
-    rollDeviation = 0.0;
-    pitchDeviation = 0.0;
-  } else {
-    float rollDev = 0.0;
-    float pitchDev = 0.0;
-    // When we don't have a valid update, our filter will regress to zero deviation.
     if (updated) {
-        rollDev = attitude.roll() * M_RAD2DEG - skill.nominalRoll;
-        pitchDev = attitude.pitch() * M_RAD2DEG - skill.nominalPitch;
+        if ((fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD )) {
+            recovering = true;
+            if (balanceRecover != 0) {
+                if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
+                    newCmd = Command::Command(Command::Simple::Recover);
+                }
+            }
+            balanceRecover = 10;
+        } else if (balanceRecover != 0) { // recover
+            recovering = true;
+            balanceRecover--;
+            if (balanceRecover == 0) {
+                // TODO: Investigate this - I don't know if we need to set newCmd == lastCmd
+                //       - observe bittle recovery if we remove this line
+                newCmd = lastCmd;
+                lastCmd = Command::Command(Command::Simple::Balance);
+                attitude.reset();
+                updated = updateAttitude();
+                meow();
+                recovering = false;
+            }
+        }
     }
-  
-    // IIR Hack to attempt to improve the compensation
-    rollDeviation = (8.0/16.0)*rollDeviation + (8.0/16.0)*rollDev;
-    pitchDeviation = (8.0/16.0)*pitchDeviation + (8.0/16.0)*pitchDev;
 
-    if (fabs(rollDeviation) < ROLL_LEVEL_TOLERANCE) {
-      rollDeviation = 0.0;
+    if (recovering) {
+        rollDeviation = 0.0;
+        pitchDeviation = 0.0;
+    } else {
+        float rollDev = 0.0;
+        float pitchDev = 0.0;
+        // When we don't have a valid update, our filter will regress to zero deviation.
+        if (updated) {
+            rollDev = attitude.roll() * M_RAD2DEG - skill.nominalRoll;
+            pitchDev = attitude.pitch() * M_RAD2DEG - skill.nominalPitch;
+        }
+    
+        // IIR Hack to attempt to improve the compensation
+        rollDeviation = (8.0/16.0)*rollDeviation + (8.0/16.0)*rollDev;
+        pitchDeviation = (8.0/16.0)*pitchDeviation + (8.0/16.0)*pitchDev;
+
+        if (fabs(rollDeviation) < ROLL_LEVEL_TOLERANCE) {
+            rollDeviation = 0.0;
+        }
+        if (fabs(pitchDeviation) < PITCH_LEVEL_TOLERANCE) {
+            pitchDeviation = 0.0;
+        }
     }
-    if (fabs(pitchDeviation) < PITCH_LEVEL_TOLERANCE) {
-      pitchDeviation = 0.0;
-    }
-  }
 }
 
 static void doBehaviorSkill(Skill::Skill& skill) {
-  int8_t repeat = skill.loopSpec.count - 1;
-  int8_t frameSize = 20;
-  const int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
-  for (uint8_t c = 0; c < skill.frames; c++) { //the last two in the row are transition speed and delay
-    transform(skill.spec + c * frameSize, angleMultiplier, skill.spec[16 + c * frameSize] / 4.0);
+    int8_t repeat = skill.loopSpec.count - 1;
+    int8_t frameSize = 20;
+    const int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
+    for (uint8_t c = 0; c < skill.frames; c++) { //the last two in the row are transition speed and delay
+        transform(skill.spec + c * frameSize, angleMultiplier, skill.spec[16 + c * frameSize] / 4.0);
 
-    if (skill.spec[18 + c * frameSize]) {
-      int triggerAxis = skill.spec[18 + c * frameSize];
-      float triggerAngle = (float)skill.spec[19 + c * frameSize] * M_DEG2RAD;
+        if (skill.spec[18 + c * frameSize]) {
+            int triggerAxis = skill.spec[18 + c * frameSize];
+            float triggerAngle = (float)skill.spec[19 + c * frameSize] * M_DEG2RAD;
 
-      float currentAngle = angleFromAxis(triggerAxis);
-      float previousAngle = currentAngle;
-      while (1) {
-        updateAttitude();
-        currentAngle = angleFromAxis(triggerAxis);
-        PT(currentAngle);
-        PTF("\t");
-        PTL(triggerAngle);
-        if ((M_PI - fabs(currentAngle) > 2.0)  //skip the angle when the reading jumps from 180 to -180
-            && (triggerAxis * currentAngle < triggerAxis * triggerAngle && triggerAxis * previousAngle > triggerAxis * triggerAngle )) {
-          //the sign of triggerAxis will deterine whether the current angle should be larger or smaller than the trigger angle
-          break;
+            float currentAngle = angleFromAxis(triggerAxis);
+            float previousAngle = currentAngle;
+            while (1) {
+                updateAttitude();
+                currentAngle = angleFromAxis(triggerAxis);
+                PT(currentAngle);
+                PTF("\t");
+                PTL(triggerAngle);
+                if ((M_PI - fabs(currentAngle) > 2.0)  //skip the angle when the reading jumps from 180 to -180
+                    && (triggerAxis * currentAngle < triggerAxis * triggerAngle && triggerAxis * previousAngle > triggerAxis * triggerAngle )) {
+                    //the sign of triggerAxis will deterine whether the current angle should be larger or smaller than the trigger angle
+                    break;
+                }
+                previousAngle = currentAngle;
+            }
+        } else {
+            delay(skill.spec[17 + c * frameSize] * 50);
         }
-        previousAngle = currentAngle;
-      }
+        if (c == skill.loopSpec.finalRow && repeat > 0) {
+            c = skill.loopSpec.firstRow - 1;
+            repeat--;
+        }
     }
-    else
-    {
-      delay(skill.spec[17 + c * frameSize] * 50);
-    }
-    if (c == skill.loopSpec.finalRow && repeat > 0) {
-      c = skill.loopSpec.firstRow - 1;
-      repeat--;
-    }
-  }
 }
 
-#define NUM_TASKS (1)
-#define MOVEMENT_PERIOD_US (20000)
+#define NUM_TASKS (3)
+#define INPUT_PERIOD_US (15000)
+#define ATTITUDE_PERIOD_US (5000)
+#define MOTION_PERIOD_US (20000)
 static Scheduler::Scheduler<NUM_TASKS> scheduler{};
-static int taskMove;
-
+#define TASK_ATTITUDE (0)
+#define TASK_INPUT (1)
+#define TASK_MOTION (2)
 
 static void initScheduler(){
-  taskMove = scheduler.registerTask(MOVEMENT_PERIOD_US);
+    scheduler.registerTask(ATTITUDE_PERIOD_US);
+    scheduler.registerTask(INPUT_PERIOD_US);
+    scheduler.registerTask(MOTION_PERIOD_US);
 }
 
 static void initI2C() {
-  Wire.begin();
-  Wire.setClock(400000);
+    Wire.begin();
+    Wire.setClock(400000);
 }
 
 static void initIMU() {
-  mpu.initialize();
-  PTL(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+    mpu.initialize();
+    PTL(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
 
-  delay(500);
-  // supply your own gyro offsets here, scaled for min sensitivity
-  for (byte i = 0; i < 4; i++) {
-    PT(EEPROMReadInt(MPUCALIB + 4 + i * 2));
-    PTF(" ");
-  }
-  mpu.setZAccelOffset(EEPROMReadInt(MPUCALIB + 4));
-  mpu.setXGyroOffset(EEPROMReadInt(MPUCALIB + 6));
-  mpu.setYGyroOffset(EEPROMReadInt(MPUCALIB + 8));
-  mpu.setZGyroOffset(EEPROMReadInt(MPUCALIB + 10));
+    delay(500);
+    // supply your own gyro offsets here, scaled for min sensitivity
+    for (byte i = 0; i < 4; i++) {
+        PT(EEPROMReadInt(MPUCALIB + 4 + i * 2));
+        PTF(" ");
+    }
+    mpu.setZAccelOffset(EEPROMReadInt(MPUCALIB + 4));
+    mpu.setXGyroOffset(EEPROMReadInt(MPUCALIB + 6));
+    mpu.setYGyroOffset(EEPROMReadInt(MPUCALIB + 8));
+    mpu.setZGyroOffset(EEPROMReadInt(MPUCALIB + 10));
 
-  mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyra and accel
-  mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
+    mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyra and accel
+    mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
 }
 
 static void processNewCommand(Command::Command& newCmd, Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex);
 static void doMotionTask(bool enableMotion, const Skill::Skill& skill, uint8_t firstMotionJoint, uint8_t& frameIndex);
 static void doMotionPosture(const Skill::Skill& skill);
 static void doMotionMove(const Skill::Skill& skill, uint8_t firstMotionJoint, uint8_t& frameIndex);
+static void doInputTask(Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex);
+static void doAttitudeTask(Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex);
 
 void Bittleet::setup() {
-  skill = Skill::Skill::Empty();
-  loader = new Skill::LoaderEeprom();
-  pinMode(BUZZER, OUTPUT);
+    skill = Skill::Skill::Empty();
+    loader = new Skill::LoaderEeprom();
+    pinMode(BUZZER, OUTPUT);
 
-  initScheduler();
+    initScheduler();
 
-  Serial.begin(BAUD_RATE);
-  while (!Serial); // wait for ready
-  while (Serial.available() && Serial.read()); // empty buffer
+    Serial.begin(BAUD_RATE);
+    while (!Serial); // wait for ready
+    while (Serial.available() && Serial.read()); // empty buffer
 
-  delay(100);
-  PTLF("\n* Start *");
-  PTLF("Bittle");
-  PTLF("Initialize I2C");
-  initI2C();
-  initIMU();
+    delay(100);
+    PTLF("\n* Start *");
+    PTLF("Bittle");
+    PTLF("Initialize I2C");
+    initI2C();
+    initIMU();
 
-  irrecv.enableIRIn(); // Start the receiver
+    irrecv.enableIRIn(); // Start the receiver
 
-  assignSkillAddressToOnboardEeprom();
-  PTL();
+    assignSkillAddressToOnboardEeprom();
+    PTL();
 
-  // servo
-  { 
-    pwm.begin();
+    // servo
+    { 
+        pwm.begin();
 
-    pwm.setPWMFreq(60 * PWM_FACTOR); // Analog servos run at ~60 Hz updates
-    delay(200);
+        pwm.setPWMFreq(60 * PWM_FACTOR); // Analog servos run at ~60 Hz updates
+        delay(200);
 
-    //meow();
-    for (int8_t i = DOF - 1; i >= 0; i--) {
-      // TODO: Investigate loading middleShift, pulsePerDeg and rotationDirection into RAM/ROM
-      servoRange[i] = servoAngleRange(i);
-      servoCalibs[i] = servoCalib(i);
-      calibratedDuty0[i] =  SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegreeF(i)  * rotationDirection(i) ;
+        //meow();
+        for (int8_t i = DOF - 1; i >= 0; i--) {
+            // TODO: Investigate loading middleShift, pulsePerDeg and rotationDirection into RAM/ROM
+            servoRange[i] = servoAngleRange(i);
+            servoCalibs[i] = servoCalib(i);
+            calibratedDuty0[i] =  SERVOMIN + PWM_RANGE / 2 + float(middleShift(i) + servoCalibs[i]) * pulsePerDegreeF(i)  * rotationDirection(i) ;
+        }
+        lastCmd = Command::Command(Command::Simple::Rest);
+        doPostureCommand(lastCmd);
+        shutServos();
     }
-    lastCmd = Command::Command(Command::Simple::Rest);
-    doPostureCommand(lastCmd);
-    shutServos();
-  }
-  beep(30);
+    beep(30);
 
-  pinMode(BATT, INPUT);
-  pinMode(BUZZER, OUTPUT);
+    pinMode(BATT, INPUT);
+    pinMode(BUZZER, OUTPUT);
 
-  meow();
+    meow();
 
-  pixels.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.show();            // Turn OFF all pixels ASAP
-  pixels.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
-  pixels.setPixelColor(0, pixels.Color(255, 0, 0)); //  Set pixel's color (in RAM)
-  pixels.show(); 
+    // pixels.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+    // pixels.show();            // Turn OFF all pixels ASAP
+    // pixels.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
+    // pixels.setPixelColor(0, pixels.Color(255, 0, 0)); //  Set pixel's color (in RAM)
+    // pixels.show(); 
 }
 
 
 
 void Bittleet::loop() { 
-  static Comms::SerialComms serialComms;
-  static bool enableMotion = false;
-  static uint8_t frameIndex = 0;
-  static byte firstMotionJoint;
+    
+    static bool enableMotion = false;
+    static uint8_t frameIndex = 0;
+    static byte firstMotionJoint;
 
-  static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
+    static Command::Move move{Command::Pace::Medium, Command::Direction::Forward};
 
-  static uint32_t lastUs = micros();
-  
-  uint32_t deltaUs = micros() - lastUs;
-  int currentTask = scheduler.waitUntilNextTask();
-  lastUs = micros();
+    static uint32_t lastUs = micros();
 
-  PTF("task: "); PT(currentTask);
-  PTF("\tdeltaT: "); PT(deltaUs); 
-  PTF("\tfree memory: "); PT(freeMemory());
-  PTL();
-  
+    uint32_t deltaUs = micros() - lastUs;
+    int currentTask = scheduler.waitUntilNextTask();
+    lastUs = micros();
 
-  int battAdcReading = analogRead(BATT);
-  Status::Battery battState = Battery::state(battAdcReading);
-  if (battState.level == Status::BatteryLevel::Low) { 
-    PTLF("Low power!");
-    beep(15, 50, 50, 3);
-    delay(1500); // HOANI TODO: Should be disabling all servos here
-  }
-  else {
-    Command::Command newCmd = Command::Command();
+    PTF("task: "); PT(currentTask);
+    PTF("\tdeltaT: "); PT(deltaUs); 
+    PTF("\tfree memory: "); PT(freeMemory());
+    PTL();
 
-    // input block
-    {
-      decode_results results;
-      if (irrecv.decode(&results)) {
-        newCmd = Infrared::parseSignal((results.value >> 8), move);
+
+    int battAdcReading = analogRead(BATT);
+    Status::Battery battState = Battery::state(battAdcReading);
+    if (battState.level == Status::BatteryLevel::Low) { 
+        PTLF("Low power!");
+        beep(15, 50, 50, 3);
+        delay(1500); // HOANI TODO: Should be disabling all servos here
+    } else {
+        switch(currentTask){
+            case TASK_ATTITUDE: {
+                doAttitudeTask(move, enableMotion, firstMotionJoint, frameIndex);
+                break;
+            }
+            case TASK_MOTION: {
+                doMotionTask(enableMotion, skill, firstMotionJoint, frameIndex);
+                break;
+            }
+            case TASK_INPUT: {
+                doInputTask(move, enableMotion, firstMotionJoint, frameIndex);
+                break;
+            }
+        }
+    }
+}
+
+static void doInputTask(Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex) {
+    static Comms::SerialComms serialComms;
+
+    decode_results results;
+    if (irrecv.decode(&results)) {
+        Command::Command newCmd = Infrared::parseSignal((results.value >> 8), move);
         irrecv.resume(); // receive the next value
-      }
-      
-      Command::Command serialCmd = serialComms.parse(move, currentAng);
-      if (serialCmd.type() != Command::Type::None) {
-        newCmd = serialCmd;
-      }
+        if (newCmd.type() != Command::Type::None) {
+            processNewCommand(newCmd, move, enableMotion, firstMotionJoint, frameIndex);
+        }
+    }
+    
+    {
+        Command::Command newCmd = serialComms.parse(move, currentAng);
+        if (newCmd.type() != Command::Type::None) {
+            processNewCommand(newCmd, move, enableMotion, firstMotionJoint, frameIndex);
+        }
     }
 
-    // MPU block
+    
+}
+
+static void doAttitudeTask(Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex) {
+    Command::Command newCmd = Command::Command();
+
     if (checkGyro) {
-      if (!(frameIndex % skipGyro)) {
         checkBodyMotion(newCmd);
-      }
     }
 
     processNewCommand(newCmd, move, enableMotion, firstMotionJoint, frameIndex);
-
-    
-
-    if (currentTask == taskMove) {
-        doMotionTask(enableMotion, skill, firstMotionJoint, frameIndex);
-    } 
-  }
 }
+
 
 static void processNewCommand(Command::Command& newCmd, Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex){
     if (newCmd.type() == Command::Type::Move) {
@@ -550,7 +567,7 @@ static void processNewCommand(Command::Command& newCmd, Command::Move& move, boo
             }
         } else if (skill.type != Skill::Type::Invalid) {
             int8_t angleMultiplier = (skill.doubleAngles) ? 2 : 1;
-            transform( skill.spec, angleMultiplier, 1, firstMotionJoint);
+            transform(skill.spec, angleMultiplier, 1, firstMotionJoint);
         }
 
         if (newCmd == Command::Simple::Rest) {
