@@ -56,7 +56,7 @@ static MPU6050 mpu;
 // NeoPixel integration
 #define PIXEL_PIN 10
 #define PIXEL_COUNT 7
-// Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel pixels(PIXEL_PIN, PIXEL_COUNT, NEO_GRB + NEO_KHZ800);
 
 #define BAUD_RATE 115200
 
@@ -312,11 +312,11 @@ void Bittleet::setup() {
 
     meow();
 
-    // pixels.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-    // pixels.show();            // Turn OFF all pixels ASAP
-    // pixels.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
-    // pixels.setPixelColor(0, pixels.Color(255, 0, 0)); //  Set pixel's color (in RAM)
-    // pixels.show(); 
+    pixels.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+    pixels.show();            // Turn OFF all pixels ASAP
+    pixels.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
+    pixels.setPixelColor(0, pixels.Color(255, 0, 0)); //  Set pixel's color (in RAM)
+    pixels.show(); 
 }
 
 
