@@ -1,3 +1,12 @@
+//
+// Bittle Skill
+// Represents skills that Bittle can execute
+//
+// Hoani Bryson (github.com/hoani)
+// Copyright (c) 2021 Leetware Limited.
+// License - MIT
+//
+
 #ifndef _BITTLEET_SKILL_H_
 #define _BITTLEET_SKILL_H_
 
@@ -30,6 +39,8 @@ struct Skill {
     LoopSpec loopSpec;
     char * spec; // Interpretation depends on type
     uint16_t specLength;
+
+    void clear();
 
     static Skill Empty(); // This is the safe method of creating a skill.
 };

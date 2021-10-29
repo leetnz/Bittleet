@@ -26,6 +26,8 @@
 // All board specific stuff have been moved to its own file, included here.
 #include "IRremoteBoardDefs.h"
 
+
+#define RAW_BUFFER_LENGTH (71) // This saves 60 bytes in RAM (buffer is int[RAW_BUFFER_LEN])
 //------------------------------------------------------------------------------
 // Information for the Interrupt Service Routine
 //

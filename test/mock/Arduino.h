@@ -24,5 +24,16 @@
 typedef uint8_t byte;
 typedef std::string String;
 
+class TimeMock{
+public:
+    static void reset();
+    static uint32_t currentUs;
+    static uint16_t lastDelayUs;
+    static uint32_t totalDelayUs;
+};
+
+uint32_t micros();
+void delayMicroseconds(uint16_t us);
+
 
 # endif // _BITTLEET_MOCK_ARDUINO_H_

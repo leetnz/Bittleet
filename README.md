@@ -34,7 +34,6 @@ All other dependencies are included in this project under `src/3rdParty`.
 # TODO
 
 - [ ] Implement `PixelStatusReporter` to use the neopixels to communicate Bittle status 
-- [ ] Make Skill commands their own Command category - will consume a little extra RAM
 - [ ] Make serial output a `StatusReporter`
     - [ ] Add Command Skills as a type of status report
 - [ ] Move IMU specific functionality out of `Bittle.ino`
@@ -43,9 +42,6 @@ All other dependencies are included in this project under `src/3rdParty`.
     - [ ] Ideally, we just store these params in RAM/ROM
 
 ## Wishlist
-- [ ] Implement a binary protocol for executing skills, getting petoi status
 - [ ] Bittle navigation integration with ROS would be nice, we would need twist messages... 
     - Might want to consider how we can determine that data...
-- [ ] Make `Comms` implement `SkillLoader` so we can load skills over Serial
-
 
