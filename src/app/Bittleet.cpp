@@ -73,7 +73,6 @@ IRrecv irrecv(IR_RECEIVER);
 static Command::Command lastCmd;
 static int8_t offsetLR = 0;
 static bool checkGyro = true;
-static int8_t skipGyro = 2;
 
 static int8_t servoCalibs[DOF] = {};
 
@@ -85,19 +84,6 @@ static Attitude::Attitude attitude = Attitude::Attitude(1.0/8.0f);
 #define AXIS_PITCH (1)
 #define AXIS_ROLL (2)
 
-static float angleFromAxis(int axis) {
-    switch abs(axis) {
-        case AXIS_ROLL: {
-            return attitude.roll();
-        }
-        case AXIS_PITCH: {
-            return attitude.pitch();
-        }
-        default: {
-            return 0.0f;
-        }
-    }
-}
 
 static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true) {
     loader->load(cmd, skill);
@@ -110,10 +96,6 @@ static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, flo
         cmd = Command::Command(Command::Simple::Rest);
     }
 }
-
-
-
-
 
 static bool updateAttitude() {
     Attitude::GravityMeasurement g;
@@ -193,11 +175,11 @@ static void doBehaviorSkill(Skill::Skill& skill) {
             int triggerAxis = skill.spec[18 + c * frameSize];
             float triggerAngle = (float)skill.spec[19 + c * frameSize] * M_DEG2RAD;
 
-            float currentAngle = angleFromAxis(triggerAxis);
+            float currentAngle = attitude.angleFromAxis(triggerAxis);
             float previousAngle = currentAngle;
             while (1) {
                 updateAttitude();
-                currentAngle = angleFromAxis(triggerAxis);
+                currentAngle = attitude.angleFromAxis(triggerAxis);
                 PT(currentAngle);
                 PTF("\t");
                 PTL(triggerAngle);

@@ -56,5 +56,24 @@ void Attitude::reset() {
     _reset = true;
 }
 
+float Attitude::angleFromAxis(Axis axis){
+    switch (axis) {
+        case Axis::Roll: {
+            return _roll;
+        }
+        case Axis::Pitch: {
+            return _pitch;
+        }
+        default: {
+            return 0.0f;
+        }
+    }
 }
+
+float Attitude::angleFromAxis(int8_t axis) {
+    Axis a = static_cast<Axis>(abs(axis));
+    return angleFromAxis(a); 
+}
+
+} // namespace Attitude
 

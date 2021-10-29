@@ -75,6 +75,8 @@ TEST_CASE("Attitude::Update_Simple", "[Attitude]" )
             REQUIRE(attitude.update(tc.input));
             NEAR(tc.expectedRoll, attitude.roll(), 1e-3f);
             NEAR(tc.expectedPitch, attitude.pitch(), 1e-3f);
+            NEAR(tc.expectedRoll, attitude.angleFromAxis(Attitude::Axis::Roll), 1e-3f);
+            NEAR(tc.expectedPitch, attitude.angleFromAxis(Attitude::Axis::Pitch), 1e-3f);
         }
     }
 }
