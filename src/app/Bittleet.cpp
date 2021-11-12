@@ -80,9 +80,6 @@ static Skill::Skill skill;
 static Skill::Loader* loader;
 
 static Attitude::Attitude attitude = Attitude::Attitude(1.0/8.0f);
-#define AXIS_YAW (0)
-#define AXIS_PITCH (1)
-#define AXIS_ROLL (2)
 
 
 static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true) {
@@ -98,8 +95,13 @@ static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, flo
 }
 
 static bool updateAttitude() {
-    Attitude::GravityMeasurement g;
-    mpu.getAcceleration(&g.x, &g.y, &g.z);
+    Attitude::Measurement m;
+    m.us = micros();
+    mpu.getMotion6(&m.accel.x, &m.accel.y, &m.accel.z, &m.gyro.x, &m.gyro.y, &m.gyro.z);
+    m.accel.x = -m.accel.x;
+    m.accel.y = -m.accel.y;
+    m.gyro.x = -m.gyro.x;
+    m.gyro.y = -m.gyro.y;
     return attitude.update(g);
 }
 
@@ -237,6 +239,7 @@ static void initIMU() {
 
     mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyra and accel
     mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
+    mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_1000);
 }
 
 static void processNewCommand(Command::Command& newCmd, Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex);

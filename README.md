@@ -33,6 +33,9 @@ All other dependencies are included in this project under `src/3rdParty`.
 
 # TODO
 
+- [ ] Attitude Improvements
+    
+
 - [ ] Implement `PixelStatusReporter` to use the neopixels to communicate Bittle status 
 - [ ] Make serial output a `StatusReporter`
     - [ ] Add Command Skills as a type of status report

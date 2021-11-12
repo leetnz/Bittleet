@@ -22,26 +22,33 @@ enum class Axis : uint8_t {
     Roll
 };
 
-struct GravityMeasurement {
+struct Vec3 {
     int16_t x, y, z;
+};
+
+struct Measurement {
+    uint32_t us;
+    Vec3 accel;
+    Vec3 gyro;
 };
 
 class Attitude {
 public:
     Attitude() = default;
-    Attitude(float filterCoeff) : _filterCoeff(filterCoeff){}
 
-    bool update(const GravityMeasurement& gravity);
-
-    float angleFromAxis(Axis axis);
-    float angleFromAxis(int8_t axis);
-    float roll() { return _roll; }
-    float pitch() { return _pitch; }
+    void update(const Measurement& m);
     void reset();
-private:
+
+    float angleFromAxis(Axis axis) const;
+    float angleFromAxis(int8_t axis) const;
+    float roll() const { return _roll; }
+    float pitch() const { return _pitch; }
+protected:
+    float _computeTrust(const Measurement& m) const;
+
     float _roll = 0.0;
     float _pitch = 0.0;
-    float _filterCoeff = 1.0; // 1.0 = no filtering, value should be between [0.0, 1.0]
+    uint32_t _usUpdate = 0;
     bool _reset = true;
 };
 
