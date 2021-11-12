@@ -30,31 +30,26 @@ void AttitudeBenchmark::setup() {
   Serial.println(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
   mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyra and accel
   mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
+  mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_1000); 
 }
 
 void AttitudeBenchmark::loop() {
-  static Attitude::Attitude attitude(0.2);
+  static Attitude::Attitude attitude{};
+  delay(10);
   uint32_t dt = micros();
-  Attitude::GravityMeasurement g;
-  mpu.getAcceleration(&g.x, &g.y, &g.z);
+
+
+  Attitude::Measurement m;
+  m.us = micros();
+  mpu.getMotion6(&m.accel.x, &m.accel.y, &m.accel.z, &m.gyro.x, &m.gyro.y, &m.gyro.z);
+  m.accel.x = -m.accel.x;
+  m.accel.y = -m.accel.y;
+  m.gyro.x = -m.gyro.x;
+  m.gyro.y = -m.gyro.y;
+
+  attitude.update(m);
   dt = micros() - dt;
 
-  Serial.print("dt (us): ");
-  Serial.print(dt);
-  Serial.print("\t");
-  Serial.print("ax: ");
-  Serial.print(g.x);
-  Serial.print("\t");
-  Serial.print("ay: ");
-  Serial.print(g.y);
-  Serial.print("\t");
-  Serial.print("az: ");
-  Serial.print(g.z);
-  Serial.print("\n");
-  delay(1000);
-  dt = micros();
-  attitude.update(g);
-  dt = micros() - dt;
   Serial.print("dt (us): ");
   Serial.print(dt);
   Serial.print("\t");
@@ -63,6 +58,17 @@ void AttitudeBenchmark::loop() {
   Serial.print("\t");
   Serial.print("pitch: ");
   Serial.print(attitude.pitch());
+  Serial.print("\t");
+  Serial.print("ax: ");
+  Serial.print(m.accel.x);
+  Serial.print("\t");
+  Serial.print("ay: ");
+  Serial.print(m.accel.y);
+  Serial.print("\t");
+  Serial.print("az: ");
+  Serial.print(m.accel.z);
+  Serial.print("\n");
+
   Serial.print("\n");
 
 }

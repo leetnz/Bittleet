@@ -76,7 +76,7 @@ TEST_CASE("Attitude::Update_Accel", "[Attitude]" )
     for (auto& tc : testCases) {
         SECTION(tc.name) {
             Attitude::Attitude attitude = Attitude::Attitude();
-            REQUIRE(attitude.update(tc.input));
+            attitude.update(tc.input);
             NEAR(tc.expectedRoll, attitude.roll(), 1e-3f);
             NEAR(tc.expectedPitch, attitude.pitch(), 1e-3f);
             NEAR(tc.expectedRoll, attitude.angleFromAxis(Attitude::Axis::Roll), 1e-3f);
@@ -124,17 +124,17 @@ TEST_CASE("Attitude::Update_Gyro", "[Attitude]" )
     for (auto& tc : testCases) {
         SECTION(tc.name) {
             Attitude::Attitude attitude = Attitude::Attitude();
-            REQUIRE(attitude.update(
+            attitude.update(
                 Measurement{
                     .us = 0, 
                     .accel = Vec3{0, 0, NOMINAL_G},
                     .gyro = Vec3{0, 0, 0}, 
                 }
-            ));
+            );
 
             float tol = std::max((abs(tc.expectedPitch) + abs(tc.expectedRoll)) * 1e-3, 1e-6);
 
-            REQUIRE(attitude.update(tc.input));
+            attitude.update(tc.input);
             NEAR(tc.expectedRoll, attitude.roll(), tol);
             NEAR(tc.expectedPitch, attitude.pitch(), tol);
             NEAR(tc.expectedRoll, attitude.angleFromAxis(Attitude::Axis::Roll), tol);
@@ -172,7 +172,7 @@ TEST_CASE("Attitude::Reset", "[Attitude]" )
         REQUIRE(0.0 == attitude.pitch());
         REQUIRE(0.0 == attitude.roll());
 
-        REQUIRE(attitude.update(step.input));
+        attitude.update(step.input);
         NEAR(step.expectedRoll, attitude.roll(), 1e-3f);
         NEAR(step.expectedPitch, attitude.pitch(), 1e-3f);
     }
