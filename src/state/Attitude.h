@@ -48,6 +48,9 @@ protected:
 
     float _roll = 0.0;
     float _pitch = 0.0;
+
+    int16_t _gyroLastX = 0;
+    int16_t _gyroLastY = 0;
     
     uint32_t _usUpdate = 0;
     bool _reset = true;

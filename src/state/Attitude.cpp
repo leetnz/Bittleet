@@ -27,8 +27,14 @@ void Attitude::update(const Measurement& m) {
 
     const float dt = (float)(m.us - _usUpdate)/(float)US_PER_SEC;
 
-    const float rollPredict = wrapPiToNegPi(_roll + (RAD_PER_S_PER_LSB * m.gyro.x) * dt);
-    const float pitchPredict = wrapPiToNegPi(_pitch + (RAD_PER_S_PER_LSB * m.gyro.y) * dt);
+    const float rollIntegrated = 0.5f * (RAD_PER_S_PER_LSB * ((float)m.gyro.x + (float)_gyroLastX)) * dt;
+    const float pitchIntegrated = 0.5f * (RAD_PER_S_PER_LSB * ((float)m.gyro.y + (float)_gyroLastY)) * dt;
+
+    const float rollPredict = wrapPiToNegPi(_roll + rollIntegrated);
+    const float pitchPredict = wrapPiToNegPi(_pitch + pitchIntegrated);
+
+    _gyroLastX = m.gyro.x;
+    _gyroLastY = m.gyro.y;
 
     const float trust = _computeTrust(m);
     if (trust == 0.0) {
@@ -60,7 +66,7 @@ float Attitude::_computeTrust(const Measurement& m) const {
                            ((int32_t)m.accel.z * (int32_t)m.accel.z);
     int32_t diff2 = accel2 - NOMINAL_G2;
     diff2 = (diff2 < 0) ? -diff2 : diff2;
-    const float trust = 1.0f - 10.0f * ((float)diff2 / (float)NOMINAL_G2);
+    const float trust = 1.0f - 5.0f * ((float)diff2 / (float)NOMINAL_G2);
     if (trust < 0.0) {
         return 0.0;
     }

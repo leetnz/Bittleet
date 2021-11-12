@@ -12,6 +12,7 @@
 
 #include "../3rdParty/I2Cdev/I2Cdev.h"
 #include "../3rdParty/MPU6050/MPU6050.h"
+#include "../OpenCat.h"
 
 
 static MPU6050 mpu;
@@ -28,6 +29,12 @@ void AttitudeBenchmark::setup() {
   initI2C();
   mpu.initialize();
   Serial.println(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+
+  mpu.setZAccelOffset(EEPROMReadInt(MPUCALIB + 4));
+  mpu.setXGyroOffset(EEPROMReadInt(MPUCALIB + 6));
+  mpu.setYGyroOffset(EEPROMReadInt(MPUCALIB + 8));
+  mpu.setZGyroOffset(EEPROMReadInt(MPUCALIB + 10));
+    
   mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyra and accel
   mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
   mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_1000); 

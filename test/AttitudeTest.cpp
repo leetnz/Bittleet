@@ -43,13 +43,13 @@ TEST_CASE("Attitude::Update_Accel", "[Attitude]" )
         },
         { 
             .name = "Right angles",      
-            .input = Measurement{.accel = Vec3{NOMINAL_G_2_AXES, NOMINAL_G_2_AXES, 0}}, 
+            .input = Measurement{.accel = Vec3{-NOMINAL_G_2_AXES, NOMINAL_G_2_AXES, 0}}, 
             .expectedRoll = 90.0 * M_DEG2RAD,
             .expectedPitch = 90.0 * M_DEG2RAD,
         },
         { 
             .name = "45 degree",      
-            .input = Measurement{.accel = Vec3{NOMINAL_G_3_AXES, NOMINAL_G_3_AXES, NOMINAL_G_3_AXES}}, 
+            .input = Measurement{.accel = Vec3{-NOMINAL_G_3_AXES, NOMINAL_G_3_AXES, NOMINAL_G_3_AXES}}, 
             .expectedRoll = 45.0 * M_DEG2RAD,
             .expectedPitch = 45.0 * M_DEG2RAD,
         },
@@ -67,7 +67,7 @@ TEST_CASE("Attitude::Update_Accel", "[Attitude]" )
         },
         { 
             .name = "pitch only",      
-            .input = Measurement{.accel = Vec3{NOMINAL_G_2_AXES, 0, NOMINAL_G_2_AXES}}, 
+            .input = Measurement{.accel = Vec3{-NOMINAL_G_2_AXES, 0, NOMINAL_G_2_AXES}}, 
             .expectedRoll = 0.0f,
             .expectedPitch = 45.0 * M_DEG2RAD,
         },
@@ -143,6 +143,50 @@ TEST_CASE("Attitude::Update_Gyro", "[Attitude]" )
     }
 }
 
+TEST_CASE("Attitude::Update_Gyro_Trapezoidal", "[Attitude]" ) 
+{ 
+    struct Step {
+        Attitude::Measurement input;
+        float expectedRoll;
+        float expectedPitch;
+    };
+
+    std::vector<Step> steps = {
+        { 
+            .input = Measurement{.us = 0, .accel = Vec3{0, 0, NOMINAL_G}, .gyro = Vec3{0, 0, 0}}, 
+            .expectedRoll = 0.0f,
+            .expectedPitch = 0.0f,
+        },
+        { 
+            .input = Measurement{.us = 1000000, .accel = Vec3{0, 0, 0}, .gyro = Vec3{RAD_PER_S, 0, 0}}, 
+            .expectedRoll = 0.5f,
+            .expectedPitch = 0.0f,
+        },
+        { 
+            .input = Measurement{.us = 2000000, .accel = Vec3{0, 0, 0}, .gyro = Vec3{0, -RAD_PER_S, 0}},  
+            .expectedRoll = 1.0f,
+            .expectedPitch = -0.5f,
+        },
+        { 
+            .input = Measurement{.us = 4000000, .accel = Vec3{0, 0, 0}, .gyro = Vec3{RAD_PER_S, 0, 0}},  
+            .expectedRoll = 2.0f,
+            .expectedPitch = -1.5f,
+        },
+    };
+
+    Attitude::Attitude attitude = Attitude::Attitude();
+
+    for (auto& step : steps) {
+        const float tol = std::max((abs(step.expectedPitch) + abs(step.expectedRoll)) * 1e-3, 1e-6);
+        
+        attitude.update(step.input);
+
+        NEAR(step.expectedRoll, attitude.roll(), tol);
+        NEAR(step.expectedPitch, attitude.pitch(), tol);
+    }
+}
+
+
 
 TEST_CASE("Attitude::Reset", "[Attitude]" ) 
 {
@@ -154,7 +198,7 @@ TEST_CASE("Attitude::Reset", "[Attitude]" )
 
     const std::vector<Step> steps = {
         {
-            .input = Measurement{.us=0, .accel = Vec3{NOMINAL_G_2_AXES, NOMINAL_G_2_AXES, 0}},
+            .input = Measurement{.us=0, .accel = Vec3{-NOMINAL_G_2_AXES, NOMINAL_G_2_AXES, 0}},
             .expectedRoll = 90.0 * M_DEG2RAD,
             .expectedPitch = 90.0 * M_DEG2RAD,
         },
@@ -227,7 +271,7 @@ TEST_CASE("Attitude::Update_GravityFilter", "[Attitude]" )
             .name = "No trust too low",
             .input = Measurement{
                 .us = 0,
-                .accel = Vec3{0, 0, (int16_t)(0.95 * (float)NOMINAL_G)},
+                .accel = Vec3{0, 0, (int16_t)(0.8 * (float)NOMINAL_G)},
                 .gyro= Vec3{},
             },
             .expectedTrust = 0.0,
@@ -236,7 +280,7 @@ TEST_CASE("Attitude::Update_GravityFilter", "[Attitude]" )
             .name = "No trust too high",
             .input = Measurement{
                 .us = 0,
-                .accel = Vec3{0, 0, (int16_t)(1.05 * (float)NOMINAL_G)},
+                .accel = Vec3{0, 0, (int16_t)(1.2 * (float)NOMINAL_G)},
                 .gyro= Vec3{},
             },
             .expectedTrust = 0.0,

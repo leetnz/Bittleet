@@ -230,7 +230,7 @@ static void initIMU() {
     mpu.setYGyroOffset(EEPROMReadInt(MPUCALIB + 8));
     mpu.setZGyroOffset(EEPROMReadInt(MPUCALIB + 10));
 
-    mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyra and accel
+    mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyro and accel
     mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
     mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_1000);
 }
