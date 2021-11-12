@@ -124,7 +124,9 @@ static void checkBodyMotion(Command::Command& newCmd)  {
             }
         }
         balanceRecover = 10;
+        attitude.reset();
     } else if (balanceRecover != 0) { // recover
+        attitude.reset(); // Keep the attitude reset - we want the latest gravity attitudes.
         recovering = true;
         balanceRecover--;
         if (balanceRecover == 0) {

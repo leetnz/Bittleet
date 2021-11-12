@@ -11,11 +11,11 @@
 // OpenCat is Copyright (c) 2021 Petoi LLC.
 //
 
-#include "src/app/AttitudeBenchmark.h"
-App* app = new AttitudeBenchmark();
+// #include "src/app/AttitudeBenchmark.h"
+// App* app = new AttitudeBenchmark();
 
-// #include "src/app/Bittleet.h"
-// App* app = new Bittleet();
+#include "src/app/Bittleet.h"
+App* app = new Bittleet();
 
 void setup() {
   app->setup();

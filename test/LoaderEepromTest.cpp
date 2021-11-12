@@ -17,7 +17,7 @@
 
 #include "skill/LoaderEeprom.h"
 
-#include "math/trig.h"
+#include "math/Trig.h"
 
 #define NOMINAL_G (16384)
 #define NOMINAL_G_2_AXES (11585)

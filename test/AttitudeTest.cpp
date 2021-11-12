@@ -15,7 +15,7 @@
 
 #include "state/Attitude.h"
 
-#include "math/trig.h"
+#include "math/Trig.h"
 
 #define RAD_PER_S (1877)
 #define NOMINAL_G (16384)
