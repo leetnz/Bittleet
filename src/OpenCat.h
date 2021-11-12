@@ -72,7 +72,7 @@
 #include<Arduino.h>
 #include "Bittle.h" //activate the correct header file according to your model
 #include "command/Command.h" //activate the correct header file according to your model
-#include "math/trig.h"
+#include "math/Trig.h"
 #include "math/FixedPoint.h"
 
 #define NyBoard_V1_0

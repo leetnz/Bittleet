@@ -73,31 +73,14 @@ IRrecv irrecv(IR_RECEIVER);
 static Command::Command lastCmd;
 static int8_t offsetLR = 0;
 static bool checkGyro = true;
-static int8_t skipGyro = 2;
 
 static int8_t servoCalibs[DOF] = {};
 
 static Skill::Skill skill;
 static Skill::Loader* loader;
 
-static Attitude::Attitude attitude = Attitude::Attitude(1.0/8.0f);
-#define AXIS_YAW (0)
-#define AXIS_PITCH (1)
-#define AXIS_ROLL (2)
+static Attitude::Attitude attitude{};
 
-static float angleFromAxis(int axis) {
-    switch abs(axis) {
-        case AXIS_ROLL: {
-            return attitude.roll();
-        }
-        case AXIS_PITCH: {
-            return attitude.pitch();
-        }
-        default: {
-            return 0.0f;
-        }
-    }
-}
 
 static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, float speedRatio = 1, bool shutServoAfterward = true) {
     loader->load(cmd, skill);
@@ -111,14 +94,15 @@ static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, flo
     }
 }
 
-
-
-
-
-static bool updateAttitude() {
-    Attitude::GravityMeasurement g;
-    mpu.getAcceleration(&g.x, &g.y, &g.z);
-    return attitude.update(g);
+static void updateAttitude() {
+    Attitude::Measurement m;
+    m.us = micros();
+    mpu.getMotion6(&m.accel.x, &m.accel.y, &m.accel.z, &m.gyro.x, &m.gyro.y, &m.gyro.z);
+    m.accel.x = -m.accel.x;
+    m.accel.y = -m.accel.y;
+    m.gyro.x = -m.gyro.x;
+    m.gyro.y = -m.gyro.y;
+    attitude.update(m);
 }
 
 #define LARGE_PITCH_RAD (LARGE_PITCH * M_DEG2RAD)
@@ -129,31 +113,31 @@ static bool updateAttitude() {
 
 static void checkBodyMotion(Command::Command& newCmd)  {
     static uint8_t balanceRecover = 0;
-    bool updated = updateAttitude();
+    updateAttitude();
     bool recovering = false;
 
-    if (updated) {
-        if ((fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD )) {
-            recovering = true;
-            if (balanceRecover != 0) {
-                if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
-                    newCmd = Command::Command(Command::Simple::Recover);
-                }
+    if ((fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD )) {
+        recovering = true;
+        if (balanceRecover != 0) {
+            if (fabs(attitude.roll()) > LARGE_ROLL_RAD) {
+                newCmd = Command::Command(Command::Simple::Recover);
             }
-            balanceRecover = 10;
-        } else if (balanceRecover != 0) { // recover
-            recovering = true;
-            balanceRecover--;
-            if (balanceRecover == 0) {
-                // TODO: Investigate this - I don't know if we need to set newCmd == lastCmd
-                //       - observe bittle recovery if we remove this line
-                newCmd = lastCmd;
-                lastCmd = Command::Command(Command::Simple::Balance);
-                attitude.reset();
-                updated = updateAttitude();
-                meow();
-                recovering = false;
-            }
+        }
+        balanceRecover = 10;
+        attitude.reset();
+    } else if (balanceRecover != 0) { // recover
+        attitude.reset(); // Keep the attitude reset - we want the latest gravity attitudes.
+        recovering = true;
+        balanceRecover--;
+        if (balanceRecover == 0) {
+            // TODO: Investigate this - I don't know if we need to set newCmd == lastCmd
+            //       - observe bittle recovery if we remove this line
+            newCmd = lastCmd;
+            lastCmd = Command::Command(Command::Simple::Balance);
+            attitude.reset();
+            updateAttitude();
+            meow();
+            recovering = false;
         }
     }
 
@@ -161,15 +145,10 @@ static void checkBodyMotion(Command::Command& newCmd)  {
         rollDeviation = 0.0;
         pitchDeviation = 0.0;
     } else {
-        float rollDev = 0.0;
-        float pitchDev = 0.0;
-        // When we don't have a valid update, our filter will regress to zero deviation.
-        if (updated) {
-            rollDev = attitude.roll() * M_RAD2DEG - skill.nominalRoll;
-            pitchDev = attitude.pitch() * M_RAD2DEG - skill.nominalPitch;
-        }
+        const float rollDev = attitude.roll() * M_RAD2DEG - skill.nominalRoll;
+        const float pitchDev = attitude.pitch() * M_RAD2DEG - skill.nominalPitch;
     
-        // IIR Hack to attempt to improve the compensation
+        // IIR Hack to attempt to improve the compensation - TODO: actually use updateIIR in math/Filters.h
         rollDeviation = (8.0/16.0)*rollDeviation + (8.0/16.0)*rollDev;
         pitchDeviation = (8.0/16.0)*pitchDeviation + (8.0/16.0)*pitchDev;
 
@@ -193,11 +172,11 @@ static void doBehaviorSkill(Skill::Skill& skill) {
             int triggerAxis = skill.spec[18 + c * frameSize];
             float triggerAngle = (float)skill.spec[19 + c * frameSize] * M_DEG2RAD;
 
-            float currentAngle = angleFromAxis(triggerAxis);
+            float currentAngle = attitude.angleFromAxis(triggerAxis);
             float previousAngle = currentAngle;
             while (1) {
                 updateAttitude();
-                currentAngle = angleFromAxis(triggerAxis);
+                currentAngle = attitude.angleFromAxis(triggerAxis);
                 PT(currentAngle);
                 PTF("\t");
                 PTL(triggerAngle);
@@ -253,8 +232,9 @@ static void initIMU() {
     mpu.setYGyroOffset(EEPROMReadInt(MPUCALIB + 8));
     mpu.setZGyroOffset(EEPROMReadInt(MPUCALIB + 10));
 
-    mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyra and accel
+    mpu.setDLPFMode(2); // Effectively 100Hz bandwidth for gyro and accel
     mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2); // Don't need anything beyond 2g
+    mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_1000);
 }
 
 static void processNewCommand(Command::Command& newCmd, Command::Move& move, bool& enableMotion, uint8_t& firstMotionJoint, uint8_t& frameIndex);

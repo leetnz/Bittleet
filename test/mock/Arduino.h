@@ -20,6 +20,7 @@
 #define F(s) (s)
 
 #define min(a,b) std::min(a,b)
+#define abs(a) std::abs(a)
 
 typedef uint8_t byte;
 typedef std::string String;
