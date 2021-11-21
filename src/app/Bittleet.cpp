@@ -94,6 +94,17 @@ static void doPostureCommand(Command::Command& cmd, byte angleDataRatio = 1, flo
     }
 }
 
+static void logAttitude(Attitude::Measurement &m) {
+    PT(m.us); PT(",");
+    PT(m.accel.x); PT(",");
+    PT(m.accel.y); PT(",");
+    PT(m.accel.z); PT(",");
+    PT(m.gyro.x); PT(",");
+    PT(m.gyro.y); PT(",");
+    PT(attitude.roll()); PT(",");
+    PT(attitude.pitch()); PT("\n");
+}
+
 static void updateAttitude() {
     Attitude::Measurement m;
     m.us = micros();
@@ -103,17 +114,19 @@ static void updateAttitude() {
     m.gyro.x = -m.gyro.x;
     m.gyro.y = -m.gyro.y;
     attitude.update(m);
+    logAttitude(m);
 }
+
+
 
 #define LARGE_PITCH_RAD (LARGE_PITCH * M_DEG2RAD)
 #define LARGE_ROLL_RAD (LARGE_ROLL * M_DEG2RAD)
-
-  
 
 
 static void checkBodyMotion(Command::Command& newCmd)  {
     static uint8_t balanceRecover = 0;
     updateAttitude();
+    return;
     bool recovering = false;
 
     if ((fabs(attitude.pitch()) > LARGE_PITCH_RAD  || fabs(attitude.roll()) > LARGE_ROLL_RAD )) {
@@ -315,10 +328,10 @@ void Bittleet::loop() {
     int currentTask = scheduler.waitUntilNextTask();
     lastUs = micros();
 
-    PTF("task: "); PT(currentTask);
-    PTF("\tdeltaT: "); PT(deltaUs); 
-    PTF("\tfree memory: "); PT(freeMemory());
-    PTL();
+    // PTF("task: "); PT(currentTask);
+    // PTF("\tdeltaT: "); PT(deltaUs); 
+    // PTF("\tfree memory: "); PT(freeMemory());
+    // PTL();
 
 
     int battAdcReading = analogRead(BATT);
